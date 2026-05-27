@@ -84,6 +84,7 @@ Expected result:
 - the bot opens with a customer-friendly main menu;
 - the source/speaker from the deep link is saved;
 - about, catalog, and contacts sections are reachable by buttons;
+- the `Мой QR` button returns a QR image, a Telegram deep link, and a source code;
 - the order/contact flow collects name, phone, and request details;
 - the confirmation step allows submit, edit, and cancel;
 - the submitted CRM item contains the expected source/speaker and request details.

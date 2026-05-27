@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import qrcode
@@ -41,6 +42,13 @@ def save_qr(link: str, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     image = qrcode.make(link)
     image.save(path)
+
+
+def qr_png_bytes(link: str) -> bytes:
+    buffer = BytesIO()
+    image = qrcode.make(link)
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def read_speakers(path: Path) -> list[Speaker]:

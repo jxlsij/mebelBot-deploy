@@ -56,6 +56,8 @@
   - Added bounded retries for all Bitrix24 API POST requests, including CRM readback and field validation, and restored the smoke test to the default retry path instead of a single create attempt.
 - [x] Document the verified Bitrix24 setup and smoke-test interpretation.
   - Added `BITRIX24_CHECKLIST.md` with HuggingFace variables, platform requirements, leads-vs-deals guidance, `ConnectTimeout` interpretation, and the verified `UF_CRM_SPEAKER_SRC=smoke_test_source` result from the CRM card.
+- [x] Add ad-hoc Telegram QR generation from the bot menu.
+  - Added a `Мой QR` Telegram menu button that replies with a PNG QR code, deep link, and source code. It reuses an existing deep-link source or creates a personal `tg_<telegram_user_id>` source for attribution.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.

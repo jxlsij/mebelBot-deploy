@@ -7,6 +7,7 @@ def test_bot_content_uses_defaults_when_not_overridden() -> None:
 
     assert content.order_button == "Оформить заказ"
     assert content.catalog_button == "Каталог"
+    assert content.qr_button == "Мой QR"
 
 
 def test_bot_content_applies_known_overrides_and_ignores_unknown_keys() -> None:

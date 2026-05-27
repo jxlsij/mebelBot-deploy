@@ -18,6 +18,7 @@ class BotContent:
     catalog_button: str = "Каталог"
     order_button: str = "Оформить заказ"
     contacts_button: str = "Контакты"
+    qr_button: str = "Мой QR"
     main_menu_button: str = "В главное меню"
     confirm_button: str = "Подтвердить"
     edit_button: str = "Изменить"
@@ -107,6 +108,14 @@ class BotContent:
         "Заявку сохранили, но CRM временно не отвечает. Мы повторим отправку и "
         "передадим данные менеджеру без повторного заполнения."
     )
+    qr_caption_text: str = (
+        "Ваш QR-код для приглашения в бот.\n\n"
+        "Когда клиент откроет ссылку и оставит заявку, этот источник попадет в Bitrix24."
+    )
+    qr_unavailable_text: str = (
+        "Не удалось сформировать QR-код: у Telegram-бота не найден username. "
+        "Добавьте TELEGRAM_BOT_USERNAME в настройки или проверьте username бота."
+    )
 
 
 DEFAULT_CONTENT = BotContent()
@@ -164,7 +173,7 @@ def unknown_content_keys(settings: Settings) -> list[str]:
 BOT_CONTENT_JSON_EXAMPLE = (
     '{"welcome_text":"Здравствуйте! Это Мебельное Бюро.",'
     '"about_button":"О бюро","catalog_button":"Каталог","order_button":"Оформить заказ",'
-    '"contacts_button":"Контакты","links_title":"Категории каталога:",'
+    '"contacts_button":"Контакты","qr_button":"Мой QR","links_title":"Категории каталога:",'
     '"contact_prompt":"Нажмите «Оформить заказ», и я соберу данные для менеджера.",'
     '"unknown_command_text":"Выберите действие в меню.",'
     '"invalid_contact_text":"Не распознал контакт.",'

@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.filters import CommandStart
-from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup, Update
+from aiogram.types import BufferedInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, Update
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from mebelbot.config import Settings
@@ -22,6 +22,7 @@ from mebelbot.flow import (
     handle_order_text,
     start_order_flow,
 )
+from mebelbot.qr import qr_png_bytes, telegram_link, validate_bot_username
 from mebelbot.storage import Storage
 
 
@@ -30,6 +31,7 @@ def main_menu(content) -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text=content.about_button), KeyboardButton(text=content.catalog_button)],
             [KeyboardButton(text=content.order_button), KeyboardButton(text=content.contacts_button)],
+            [KeyboardButton(text=content.qr_button)],
         ],
         resize_keyboard=True,
     )
@@ -58,6 +60,25 @@ def markup_for_result(result, content):
     if result.show_cancel:
         return cancel_menu(content)
     return main_menu(content)
+
+
+def telegram_qr_source(storage: Storage, user_id: str) -> str:
+    existing_source = storage.get_source(Channel.telegram, user_id)
+    if existing_source:
+        return existing_source
+    source = f"tg_{user_id}"
+    storage.save_source(Channel.telegram, user_id, source)
+    return source
+
+
+async def telegram_bot_username(message: Message, settings: Settings) -> str | None:
+    if settings.telegram_bot_username:
+        return validate_bot_username(settings.telegram_bot_username, field_name="TELEGRAM_BOT_USERNAME")
+
+    bot_user = await message.bot.get_me()
+    if not bot_user.username:
+        return None
+    return validate_bot_username(bot_user.username, field_name="Telegram bot username")
 
 
 def build_dispatcher(settings: Settings, storage: Storage, bitrix: BitrixClient) -> Dispatcher:
@@ -91,6 +112,29 @@ def build_dispatcher(settings: Settings, storage: Storage, bitrix: BitrixClient)
     @dp.message(F.text == content.contacts_button)
     async def on_contacts(message: Message) -> None:
         await message.answer(content.contacts_text, reply_markup=reply_markup)
+
+    @dp.message(F.text == content.qr_button)
+    async def on_qr(message: Message) -> None:
+        if not message.from_user:
+            await message.answer(content.qr_unavailable_text, reply_markup=reply_markup)
+            return
+
+        try:
+            username = await telegram_bot_username(message, settings)
+        except ValueError:
+            username = None
+        if not username:
+            await message.answer(content.qr_unavailable_text, reply_markup=reply_markup)
+            return
+
+        source = telegram_qr_source(storage, str(message.from_user.id))
+        link = telegram_link(username, source)
+        qr_file = BufferedInputFile(qr_png_bytes(link), filename=f"{source}-telegram.png")
+        await message.answer_photo(
+            qr_file,
+            caption=f"{content.qr_caption_text}\n\nСсылка: {link}\nИсточник: {source}",
+            reply_markup=reply_markup,
+        )
 
     @dp.message((F.text == content.order_button) | (F.text == content.contact_button))
     async def on_contact_button(message: Message) -> None:

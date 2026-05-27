@@ -91,6 +91,12 @@ guided order form in both Telegram and Max: name, phone, request details, then
 confirmation with submit, edit, or cancel actions. When Bitrix24 is later enabled,
 request details will be included in the configured Bitrix24 comment field.
 
+Telegram also has a `Мой QR` menu button. It sends the user a PNG QR code and
+the matching Telegram deep link. If the user originally opened the bot through a
+speaker/source deep link, the QR reuses that source code. Otherwise the bot
+creates a personal source code in the `tg_<telegram_user_id>` format and stores
+it for later attribution.
+
 Contact submissions are stored in SQLite with a contact fingerprint and status. Once
 Bitrix24 is enabled, temporary CRM failures are retried before the contact is marked as
 failed, and duplicate messages with the same channel, user, phone, and source reuse the
@@ -316,3 +322,7 @@ Before sending QR files to speakers, manually verify each row from the manifest:
 2. Start the bot and submit a test request through the guided form.
 3. Confirm in Bitrix24 that `BITRIX24_SOURCE_FIELD` contains the exact `code` from the manifest.
 4. Repeat for every speaker/source row, then archive or delete the test CRM items.
+
+For ad-hoc Telegram QR generation, open the bot and press `Мой QR`. The bot will
+reply with a QR PNG, the deep link, and the source code that should later appear
+in Bitrix24.

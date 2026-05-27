@@ -9,6 +9,7 @@ from mebelbot.qr import (
     Speaker,
     generate_qr_artifacts,
     max_link,
+    qr_png_bytes,
     read_speakers,
     save_qr,
     telegram_link,
@@ -27,6 +28,12 @@ def test_save_qr_writes_png(tmp_path) -> None:
     save_qr("https://t.me/tg_bot?start=src_speaker_1", path)
 
     assert path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_qr_png_bytes_returns_png() -> None:
+    content = qr_png_bytes("https://t.me/tg_bot?start=src_speaker_1")
+
+    assert content.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_read_speakers_rejects_duplicate_codes(tmp_path) -> None:
