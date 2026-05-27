@@ -5,8 +5,8 @@
   - Blocked until the real speaker list and bot usernames are provided. The QR generator now rejects placeholder usernames and invalid source codes before writing production artifacts.
 
 ## 📋 Backlog
-- [ ] Verify Bitrix24 integration against the real portal once credentials are available: confirm whether the project should create leads or deals, confirm field mappings, and prove the speaker/source field receives the expected value.
-  - Needed: `BITRIX24_WEBHOOK_URL`, `BITRIX24_ENTITY`, `BITRIX24_SOURCE_FIELD`, and any custom name/phone/comment field codes. Run `mebelbot bitrix-validate-fields` before the smoke test.
+- [ ] Resolve Bitrix24 DNS/TLS routing instability for normal unfixed-IP smoke tests.
+  - On 2026-05-27, DNS for `b24-ymgd84.bitrix24.ru` returned a mixed pool: some IPs completed TLS quickly, while others timed out during TLS handshake. The webhook credentials and field mapping are valid, but regular clients may still hit a bad route until Bitrix/network routing stabilizes.
 - [ ] Optionally run the Bitrix24 smoke test against a temporary Bitrix24 trial/demo portal before client CRM access is ready.
   - This can verify webhook creation, lead/deal payloads, and custom source field mapping, but production validation must be repeated on the client's real Bitrix24 portal.
 - [ ] Keep the simple one-message contact input available only if needed as an operator shortcut or fallback; the customer demo should prefer the guided form.
@@ -48,6 +48,8 @@
 - [x] Keep the bot demo-ready while Bitrix24 access is unavailable.
   - Added regression coverage proving Telegram/shared guided order collection persists failed CRM submissions in SQLite when Bitrix24 is disabled.
   - Added regression coverage proving Max menu, catalog links, contacts, guided order collection, source attribution, and SQLite persistence continue to work without CRM credentials.
+- [x] Verify Bitrix24 webhook credentials and source-field mapping against the configured portal.
+  - On 2026-05-27, a forced-healthy-IP API check validated `lead` fields, created test lead `id=16`, read it back, and confirmed `UF_CRM_SPEAKER_SRC=smoke_test_source`.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.
