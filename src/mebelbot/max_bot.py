@@ -9,6 +9,11 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from mebelbot.bitrix import Bitrix24Client
 from mebelbot.config import Settings
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 from mebelbot.content import bot_content, command_matches, links_text, unknown_command_reply
 from mebelbot.crm import CRMSubmissionService
 from mebelbot.domain import Channel, parse_start_payload
