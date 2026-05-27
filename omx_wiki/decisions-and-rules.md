@@ -26,7 +26,7 @@
 
 - The project is aiogram/FastAPI/ASGI, not a simple `telebot` script.
 - HuggingFace deployment should use Docker/ASGI command, not copied `telebot`
-  snippets from `deploy guides/`.
+  snippets from `deploy-guides/`.
 - Max production webhooks require HTTPS on port 443 with trusted TLS.
 - Telegram can run polling or webhook depending on launch mode.
 - After committed changes that should go live, push `main` to both remotes:

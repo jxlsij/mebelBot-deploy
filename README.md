@@ -142,7 +142,7 @@ the webhook update payload.
 
 ## Deploy on HuggingFace Spaces
 
-The files in `deploy guides/` describe a free HuggingFace + Cloudflare Worker pattern for
+The files in `deploy-guides/` describe a free HuggingFace + Cloudflare Worker pattern for
 simple `telebot` projects. This project uses `aiogram` and FastAPI, so deploy the ASGI app
 from the included `Dockerfile` instead of copying `main.py` snippets from the guide.
 
@@ -177,7 +177,7 @@ OPS_STATUS_SECRET=long-random-operator-secret
 ```
 
 If Telegram API calls from HuggingFace are blocked, create the Cloudflare Worker from
-`deploy guides/deploy_guide_ai.md` and set:
+`deploy-guides/deploy_guide_ai.md` and set:
 
 ```text
 TELEGRAM_API_BASE=https://your-worker.workers.dev

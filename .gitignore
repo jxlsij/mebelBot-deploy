@@ -4,9 +4,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+.omx/
 .env
 
 *.db
 *.sqlite3
 data/qr/
-deploy guides/.DS_Store

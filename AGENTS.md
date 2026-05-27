@@ -97,7 +97,7 @@ Current next task at initialization time:
   demo should be friendlier: menu sections, furniture-bureau copy, category links,
   and step-by-step contact/order collection.
 - After code changes, run both pytest and ruff.
-- `deploy guides/` contains a free HuggingFace + Cloudflare Worker deployment guide for
+- `deploy-guides/` contains a free HuggingFace + Cloudflare Worker deployment guide for
   simple `telebot` projects. Treat it as deployment reference only: this project uses
   `aiogram` and FastAPI, so production deployment needs an ASGI Dockerfile/start command
   instead of copying the `main.py`/`telebot` snippets directly.
