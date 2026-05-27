@@ -116,6 +116,12 @@ class BotContent:
         "Не удалось сформировать QR-код: у Telegram-бота не найден username. "
         "Добавьте TELEGRAM_BOT_USERNAME в настройки или проверьте username бота."
     )
+    qr_start_notification_text: str = (
+        "По вашему QR-коду открыли бота.\n\n"
+        "Пользователь: {user_name}\n"
+        "Telegram ID: {user_id}\n"
+        "Источник: {source}"
+    )
 
 
 DEFAULT_CONTENT = BotContent()

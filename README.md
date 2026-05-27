@@ -95,7 +95,9 @@ Telegram also has a `Мой QR` menu button. It sends the user a PNG QR code and
 the matching Telegram deep link. If the user originally opened the bot through a
 speaker/source deep link, the QR reuses that source code. Otherwise the bot
 creates a personal source code in the `tg_<telegram_user_id>` format and stores
-it for later attribution.
+it for later attribution. When another Telegram user starts the bot through that
+personal QR link, the QR owner receives a Telegram notification with the starter's
+display name, Telegram ID, and source code.
 
 Contact submissions are stored in SQLite with a contact fingerprint and status. Once
 Bitrix24 is enabled, temporary CRM failures are retried before the contact is marked as
@@ -325,4 +327,5 @@ Before sending QR files to speakers, manually verify each row from the manifest:
 
 For ad-hoc Telegram QR generation, open the bot and press `Мой QR`. The bot will
 reply with a QR PNG, the deep link, and the source code that should later appear
-in Bitrix24.
+in Bitrix24. If another user opens the bot through a personal `tg_<id>` QR link,
+the QR owner receives a Telegram notification.

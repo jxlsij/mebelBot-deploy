@@ -58,6 +58,8 @@
   - Added `BITRIX24_CHECKLIST.md` with HuggingFace variables, platform requirements, leads-vs-deals guidance, `ConnectTimeout` interpretation, and the verified `UF_CRM_SPEAKER_SRC=smoke_test_source` result from the CRM card.
 - [x] Add ad-hoc Telegram QR generation from the bot menu.
   - Added a `Мой QR` Telegram menu button that replies with a PNG QR code, deep link, and source code. It reuses an existing deep-link source or creates a personal `tg_<telegram_user_id>` source for attribution.
+- [x] Notify Telegram personal QR owners when another user opens their QR link.
+  - For `/start src_tg_<owner_id>`, the bot sends the owner a Telegram notification with the starter display name, Telegram ID, and source code. Self-starts and shared speaker codes do not notify anyone.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.

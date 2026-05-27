@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from secrets import compare_digest
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramAPIError
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.filters import CommandStart
@@ -24,6 +26,8 @@ from mebelbot.flow import (
 )
 from mebelbot.qr import qr_png_bytes, telegram_link, validate_bot_username
 from mebelbot.storage import Storage
+
+logger = logging.getLogger(__name__)
 
 
 def main_menu(content) -> ReplyKeyboardMarkup:
@@ -81,6 +85,51 @@ async def telegram_bot_username(message: Message, settings: Settings) -> str | N
     return validate_bot_username(bot_user.username, field_name="Telegram bot username")
 
 
+def personal_qr_owner_id(source: str, starter_user_id: str) -> str | None:
+    if not source.startswith("tg_"):
+        return None
+    owner_id = source.removeprefix("tg_")
+    if not owner_id.isdecimal() or owner_id == starter_user_id:
+        return None
+    return owner_id
+
+
+def user_display_name(message: Message) -> str:
+    if not message.from_user:
+        return "unknown"
+    parts = [message.from_user.first_name or "", message.from_user.last_name or ""]
+    full_name = " ".join(part for part in parts if part).strip()
+    if message.from_user.username:
+        username = f"@{message.from_user.username}"
+        return f"{full_name} ({username})" if full_name else username
+    return full_name or "unknown"
+
+
+async def notify_personal_qr_owner(message: Message, source: str, notification_template: str) -> None:
+    if not message.from_user:
+        return
+    owner_id = personal_qr_owner_id(source, str(message.from_user.id))
+    if not owner_id:
+        return
+    text = notification_template.format(
+        user_name=user_display_name(message),
+        user_id=message.from_user.id,
+        source=source,
+    )
+    try:
+        await message.bot.send_message(chat_id=owner_id, text=text)
+    except TelegramAPIError as error:
+        logger.warning(
+            "Failed to notify Telegram personal QR owner",
+            extra={
+                "owner_id": owner_id,
+                "starter_user_id": message.from_user.id,
+                "source": source,
+                "error_type": type(error).__name__,
+            },
+        )
+
+
 def build_dispatcher(settings: Settings, storage: Storage, bitrix: BitrixClient) -> Dispatcher:
     dp = Dispatcher()
     crm = CRMSubmissionService(storage, bitrix)
@@ -93,6 +142,7 @@ def build_dispatcher(settings: Settings, storage: Storage, bitrix: BitrixClient)
         if source and message.from_user:
             storage.save_source(Channel.telegram, str(message.from_user.id), source)
             storage.clear_flow_state(Channel.telegram, str(message.from_user.id))
+            await notify_personal_qr_owner(message, source, content.qr_start_notification_text)
         await message.answer(content.welcome_text, reply_markup=reply_markup)
 
     @dp.message(F.text == content.main_menu_button)
