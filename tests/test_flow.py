@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-from mebelbot.crm import CRMSubmissionService
+from mebelbot.bitrix import DisabledBitrix24Client
+from mebelbot.crm import CRMSubmissionService, contact_fingerprint
 from mebelbot.domain import Channel, ContactData
-from mebelbot.flow import CRM_SUCCESS, confirm_order_flow, handle_contact_text, handle_order_text, start_order_flow
-from mebelbot.storage import Storage
+from mebelbot.flow import (
+    CRM_SUCCESS,
+    CRM_TEMP_ERROR,
+    confirm_order_flow,
+    handle_contact_text,
+    handle_order_text,
+    start_order_flow,
+)
+from mebelbot.storage import SQLiteStorage, Storage
 
 
 class FakeStorage(Storage):
@@ -194,3 +202,56 @@ async def test_guided_order_flow_rejects_short_phone() -> None:
     assert result.handled is True
     assert result.show_cancel is True
     assert storage.get_flow_state(Channel.telegram, "42")[0] == "order_phone"
+
+
+async def test_guided_order_flow_persists_locally_without_bitrix(tmp_path) -> None:
+    storage = SQLiteStorage(f"sqlite:///{tmp_path / 'demo.sqlite3'}")
+    storage.save_source(Channel.telegram, "42", "speaker_9")
+    crm = CRMSubmissionService(storage, DisabledBitrix24Client())
+
+    start_order_flow(channel=Channel.telegram, user_id="42", storage=storage)
+    await handle_order_text(
+        text="Иван Петров",
+        channel=Channel.telegram,
+        user_id="42",
+        storage=storage,
+    )
+    await handle_order_text(
+        text="+375291234567",
+        channel=Channel.telegram,
+        user_id="42",
+        storage=storage,
+    )
+    await handle_order_text(
+        text="Нужна кухня под заказ, светлый фасад",
+        channel=Channel.telegram,
+        user_id="42",
+        storage=storage,
+    )
+
+    result = await confirm_order_flow(
+        channel=Channel.telegram,
+        user_id="42",
+        storage=storage,
+        crm=crm,
+    )
+
+    contact = ContactData.create(
+        name="Иван Петров",
+        phone="+375291234567",
+        request_details="Нужна кухня под заказ, светлый фасад",
+        source_code="speaker_9",
+        channel=Channel.telegram,
+        messenger_user_id="42",
+    )
+    submission = storage.get_submission(contact_fingerprint(contact))
+    failed = storage.list_failed_submissions()
+
+    assert result.reply == CRM_TEMP_ERROR
+    assert result.crm_submitted is False
+    assert result.show_main_menu is True
+    assert storage.get_flow_state(Channel.telegram, "42") is None
+    assert submission is not None
+    assert submission["status"] == "failed"
+    assert failed[0].contact.name == "Иван Петров"
+    assert failed[0].contact.request_details == "Нужна кухня под заказ, светлый фасад"

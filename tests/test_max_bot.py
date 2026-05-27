@@ -6,10 +6,11 @@ import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from mebelbot.bitrix import DisabledBitrix24Client
 from mebelbot.config import Settings
 from mebelbot.domain import Channel, ContactData
 from mebelbot.max_bot import MaxClient, build_max_router, extract_text, extract_user_id
-from mebelbot.storage import Storage
+from mebelbot.storage import SQLiteStorage, Storage
 
 
 class FakeStorage(Storage):
@@ -152,3 +153,66 @@ def test_max_webhook_rejects_unsupported_update_type() -> None:
     )
 
     assert response.status_code == 400
+
+
+def test_max_demo_flow_works_without_bitrix_credentials(tmp_path) -> None:
+    settings = Settings(
+        MAX_BOT_TOKEN="max-token",
+        WEBHOOK_SECRET="secret-123",
+        BITRIX24_WEBHOOK_URL="",
+        CONTENT_LINKS_JSON={"Кухни": "https://example.org/kitchen"},
+        DATABASE_URL=f"sqlite:///{tmp_path / 'demo.sqlite3'}",
+    )
+    storage = SQLiteStorage(settings.database_url)
+    max_client = FakeMaxClient()
+    app = FastAPI()
+    app.include_router(build_max_router(settings, storage, DisabledBitrix24Client(), max_client))
+    client = TestClient(app)
+
+    def post_text(text: str):
+        return client.post(
+            "/webhooks/max",
+            headers={"X-Max-Bot-Api-Secret": "secret-123"},
+            json={
+                "update_type": "message_created",
+                "message": {
+                    "sender": {"user_id": 123},
+                    "body": {"text": text},
+                },
+            },
+        )
+
+    started = client.post(
+        "/webhooks/max",
+        headers={"X-Max-Bot-Api-Secret": "secret-123"},
+        json={
+            "update_type": "bot_started",
+            "user": {"user_id": 123},
+            "payload": "src_speaker_7",
+        },
+    )
+    catalog = post_text("Каталог")
+    contacts = post_text("Контакты")
+    order = post_text("Оформить заказ")
+    name = post_text("Иван Петров")
+    phone = post_text("+375291234567")
+    details = post_text("Нужна кухня под заказ, светлый фасад")
+    confirmed = post_text("Подтвердить")
+
+    failed = storage.list_failed_submissions()
+
+    assert started.status_code == 200
+    assert catalog.status_code == 200
+    assert contacts.status_code == 200
+    assert order.status_code == 200
+    assert name.status_code == 200
+    assert phone.status_code == 200
+    assert details.status_code == 200
+    assert confirmed.status_code == 200
+    assert confirmed.json() == {"status": "crm_failed"}
+    assert storage.get_source(Channel.max, "123") == "speaker_7"
+    assert any("https://example.org/kitchen" in text for _, text in max_client.sent)
+    assert any("Контакты" in text for _, text in max_client.sent)
+    assert failed[0].contact.name == "Иван Петров"
+    assert failed[0].contact.request_details == "Нужна кухня под заказ, светлый фасад"
+    assert failed[0].contact.source_code == "speaker_7"

@@ -1,5 +1,4 @@
 ## 🎯 Current
-- [ ] Keep the bot demo-ready while Bitrix24 access is unavailable: Telegram/Max menus, catalog links, contacts, guided order collection, and SQLite persistence should continue to work without CRM credentials.
 - [ ] Collect production inputs from the client before generating final QR materials.
   - Needed: real speaker list with unique `code,name` rows, real Telegram bot username, real Max bot username, and production host details for Max HTTPS webhooks.
 - [ ] Replace `data/speakers.csv` demo rows with the real speaker list, regenerate QR codes with real Telegram/Max bot usernames, and manually verify that every deep link stores the correct source code.
@@ -46,6 +45,9 @@
   - Kept useful fixes: `httpx` INFO logs no longer expose webhook URLs, CLI errors are concise, and local `.env` Bitrix values stay out of Git.
   - Removed the experimental long sync fallback; `bitrix-smoke-test` uses one CRM creation attempt.
   - On 2026-05-27, `.venv/bin/mebelbot bitrix-validate-fields` passed for `lead` with source field `UF_CRM_SPEAKER_SRC`; one bounded `bitrix-smoke-test` failed with `ConnectTimeout`, so the trial portal is not stable enough for repeat testing.
+- [x] Keep the bot demo-ready while Bitrix24 access is unavailable.
+  - Added regression coverage proving Telegram/shared guided order collection persists failed CRM submissions in SQLite when Bitrix24 is disabled.
+  - Added regression coverage proving Max menu, catalog links, contacts, guided order collection, source attribution, and SQLite persistence continue to work without CRM credentials.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.
