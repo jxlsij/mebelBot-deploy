@@ -153,7 +153,7 @@ async def _run_bitrix_smoke_test(
         channel=Channel.telegram,
         messenger_user_id="bitrix-smoke-test",
     )
-    item_id = await bitrix.create_crm_item(contact, attempts=1)
+    item_id = await bitrix.create_crm_item(contact)
     item = await bitrix.get_crm_item(item_id)
     fields = item.get("result")
     if not isinstance(fields, dict):

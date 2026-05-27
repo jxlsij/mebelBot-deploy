@@ -263,7 +263,10 @@ mebelbot bitrix-smoke-test --source smoke_speaker --phone +375291234567 --name "
 ```
 
 The command uses `BITRIX24_ENTITY` to choose lead or deal, then checks that
-`BITRIX24_SOURCE_FIELD` contains the same source code that was sent.
+`BITRIX24_SOURCE_FIELD` contains the same source code that was sent. Bitrix24 API
+requests are retried with short exponential backoff, so the smoke test tolerates
+occasional timeout/TLS failures from a mixed Bitrix24 DNS pool while still failing
+on persistent connectivity, credential, or field-mapping errors.
 
 Before creating a smoke-test CRM item, validate that the configured field mapping exists
 on the selected Bitrix24 entity:

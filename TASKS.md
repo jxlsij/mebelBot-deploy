@@ -6,8 +6,6 @@
   - Blocked until the real speaker list and bot usernames are provided. The QR generator now rejects placeholder usernames and invalid source codes before writing production artifacts.
 
 ## 📋 Backlog
-- [ ] Resolve Bitrix24 DNS/TLS routing instability for normal unfixed-IP smoke tests.
-  - On 2026-05-27, DNS for `b24-ymgd84.bitrix24.ru` returned a mixed pool: some IPs completed TLS quickly, while others timed out during TLS handshake. The webhook credentials and field mapping are valid, but regular clients may still hit a bad route until Bitrix/network routing stabilizes.
 - [ ] Optionally run the Bitrix24 smoke test against a temporary Bitrix24 trial/demo portal before client CRM access is ready.
   - This can verify webhook creation, lead/deal payloads, and custom source field mapping, but production validation must be repeated on the client's real Bitrix24 portal.
 - [ ] Keep the simple one-message contact input available only if needed as an operator shortcut or fallback; the customer demo should prefer the guided form.
@@ -53,6 +51,9 @@
   - On 2026-05-27, a forced-healthy-IP API check validated `lead` fields, created test lead `id=16`, read it back, and confirmed `UF_CRM_SPEAKER_SRC=smoke_test_source`.
 - [x] Prepare production input collection materials for final QR generation.
   - Added `PRODUCTION_INPUTS.md`, `data/speakers.production.template.csv`, template validation coverage, and regenerated demo QR artifacts with non-placeholder demo usernames.
+- [x] Resolve Bitrix24 DNS/TLS routing instability for normal unfixed-IP smoke tests.
+  - On 2026-05-27, DNS for `b24-ymgd84.bitrix24.ru` returned a mixed pool: some IPs completed TLS quickly, while others timed out during TLS handshake. The webhook credentials and field mapping were valid, but normal clients could hit a bad route.
+  - Added bounded retries for all Bitrix24 API POST requests, including CRM readback and field validation, and restored the smoke test to the default retry path instead of a single create attempt.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.

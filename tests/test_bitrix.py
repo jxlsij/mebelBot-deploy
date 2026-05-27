@@ -57,6 +57,27 @@ async def test_bitrix_retries_temporary_http_errors(monkeypatch) -> None:
     assert len(requests) == 2
 
 
+async def test_bitrix_retries_readback_transport_errors(monkeypatch) -> None:
+    settings = Settings(BITRIX24_WEBHOOK_URL="https://example.bitrix24.ru/rest/1/token/")
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            raise httpx.ConnectTimeout("TLS handshake timed out")
+        return httpx.Response(200, json={"result": {"ID": "123"}})
+
+    async def no_sleep(delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(mebelbot.bitrix.asyncio, "sleep", no_sleep)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        result = await Bitrix24Client(settings, http_client=http_client).get_crm_item("123")
+
+    assert result["result"]["ID"] == "123"
+    assert len(requests) == 2
+
+
 async def test_bitrix_get_crm_item_uses_configured_entity_method() -> None:
     settings = Settings(
         BITRIX24_WEBHOOK_URL="https://example.bitrix24.ru/rest/1/token/",

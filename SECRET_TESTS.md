@@ -38,6 +38,10 @@ Expected result includes:
 Bitrix24 smoke test passed
 ```
 
+The command uses bounded retries for temporary Bitrix24 timeout, transport, and
+5xx/429 responses. Repeated failures still indicate a real portal, network, or
+field-mapping issue that must be resolved before production use.
+
 Confirm in Bitrix24 that the created lead/deal type matches `BITRIX24_ENTITY` and
 that the source field configured in `BITRIX24_SOURCE_FIELD` contains `smoke_speaker`.
 

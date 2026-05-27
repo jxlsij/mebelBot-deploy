@@ -11,6 +11,8 @@ from mebelbot.domain import ContactData
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_ATTEMPTS = 3
+
 
 class Bitrix24Error(RuntimeError):
     pass
@@ -56,41 +58,26 @@ class Bitrix24Client:
             fields[self.settings.bitrix24_source_field] = contact.source_code
         return {"fields": fields}
 
-    async def create_crm_item(self, contact: ContactData, *, attempts: int = 3) -> str:
+    async def create_crm_item(self, contact: ContactData, *, attempts: int = DEFAULT_ATTEMPTS) -> str:
         method = "crm.lead.add.json" if self.settings.bitrix24_entity == "lead" else "crm.deal.add.json"
         webhook = str(self.settings.bitrix24_webhook_url).rstrip("/")
         payload = self.build_payload(contact)
-
-        last_error: Exception | None = None
-        for attempt in range(1, attempts + 1):
-            try:
-                return await self._post_crm_item(f"{webhook}/{method}", payload)
-            except (httpx.TimeoutException, httpx.TransportError, Bitrix24TransientError) as error:
-                last_error = error
-                if attempt >= attempts:
-                    break
-                delay = 0.5 * (2 ** (attempt - 1))
-                logger.warning(
-                    "Temporary Bitrix24 submission failure; retrying",
-                    extra={
-                        "attempt": attempt,
-                        "delay": delay,
-                        "channel": contact.channel.value,
-                        "error_type": type(error).__name__,
-                    },
-                )
-                await asyncio.sleep(delay)
-
-        if last_error is None:
-            detail = "unknown error"
-        else:
-            detail = f"{type(last_error).__name__}: {last_error}"
-        raise Bitrix24Error(f"Bitrix24 submission failed after {attempts} attempts: {detail}")
+        return await self._post_crm_item(
+            f"{webhook}/{method}",
+            payload,
+            attempts=attempts,
+            operation="submission",
+            log_extra={"channel": contact.channel.value},
+        )
 
     async def get_crm_item(self, item_id: str) -> dict[str, Any]:
         method = "crm.lead.get.json" if self.settings.bitrix24_entity == "lead" else "crm.deal.get.json"
         webhook = str(self.settings.bitrix24_webhook_url).rstrip("/")
-        return await self._post_crm_json(f"{webhook}/{method}", {"id": item_id})
+        return await self._post_crm_json(
+            f"{webhook}/{method}",
+            {"id": item_id},
+            operation="readback",
+        )
 
     async def get_crm_fields(self) -> dict[str, Any]:
         method = (
@@ -99,17 +86,67 @@ class Bitrix24Client:
             else "crm.deal.fields.json"
         )
         webhook = str(self.settings.bitrix24_webhook_url).rstrip("/")
-        data = await self._post_crm_json(f"{webhook}/{method}", {})
+        data = await self._post_crm_json(f"{webhook}/{method}", {}, operation="field validation")
         fields = data.get("result")
         if not isinstance(fields, dict):
             raise Bitrix24Error("Bitrix24 fields response did not contain a field map")
         return fields
 
-    async def _post_crm_item(self, url: str, payload: dict[str, Any]) -> str:
-        data = await self._post_crm_json(url, payload)
+    async def _post_crm_item(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        *,
+        attempts: int = DEFAULT_ATTEMPTS,
+        operation: str = "request",
+        log_extra: dict[str, Any] | None = None,
+    ) -> str:
+        data = await self._post_crm_json(
+            url,
+            payload,
+            attempts=attempts,
+            operation=operation,
+            log_extra=log_extra,
+        )
         return str(data.get("result", ""))
 
-    async def _post_crm_json(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _post_crm_json(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        *,
+        attempts: int = DEFAULT_ATTEMPTS,
+        operation: str = "request",
+        log_extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        last_error: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return await self._send_post(url, payload)
+            except (httpx.TimeoutException, httpx.TransportError, Bitrix24TransientError) as error:
+                last_error = error
+                if attempt >= attempts:
+                    break
+                delay = 0.5 * (2 ** (attempt - 1))
+                logger.warning(
+                    "Temporary Bitrix24 %s failure; retrying",
+                    operation,
+                    extra={
+                        "attempt": attempt,
+                        "delay": delay,
+                        "error_type": type(error).__name__,
+                        **(log_extra or {}),
+                    },
+                )
+                await asyncio.sleep(delay)
+
+        if last_error is None:
+            detail = "unknown error"
+        else:
+            detail = f"{type(last_error).__name__}: {last_error}"
+        raise Bitrix24Error(f"Bitrix24 {operation} failed after {attempts} attempts: {detail}")
+
+    async def _send_post(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         if self._client is not None:
             response = await self._client.post(url, json=payload)
             return self._parse_crm_response(response)
