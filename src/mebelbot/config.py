@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str = Field(default="", alias="TELEGRAM_WEBHOOK_SECRET")
     max_bot_token: str = Field(default="", alias="MAX_BOT_TOKEN")
     max_bot_username: str = Field(default="", alias="MAX_BOT_USERNAME")
+    max_bot_qr_image_url: str = Field(default="", alias="MAX_BOT_QR_IMAGE_URL")
     bitrix24_webhook_url: str = Field(default="", alias="BITRIX24_WEBHOOK_URL")
     database_url: str = Field(default="sqlite:///data/mebelbot.sqlite3", alias="DATABASE_URL")
     webhook_host: str = Field(default="", alias="WEBHOOK_HOST")

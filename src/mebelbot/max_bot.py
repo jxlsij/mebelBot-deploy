@@ -180,8 +180,9 @@ def max_reply_for_result(result, content) -> str:
 
 
 class MaxClient:
-    def __init__(self, token: str, http_client: httpx.AsyncClient | None = None) -> None:
-        self.token = token
+    def __init__(self, settings: Settings, http_client: httpx.AsyncClient | None = None) -> None:
+        self.settings = settings
+        self.token = settings.max_bot_token
         self.base_url = "https://platform-api.max.ru"
         self._client = http_client
 
@@ -243,7 +244,21 @@ class MaxClient:
                 token = await try_upload("data")
 
             if not token:
-                logger.error("Max API file upload failed to return token with both 'file' and 'data'")
+                # Log the actual response for debugging
+                try:
+                    # Repeat one last time to capture the body specifically
+                    files = {"file": (filename, image_bytes, "image/png")}
+                    if self._client is not None:
+                        resp = await self._client.post(upload_url, files=files)
+                    else:
+                        async with httpx.AsyncClient(timeout=30) as client:
+                            resp = await client.post(upload_url, files=files)
+                    logger.error(
+                        "Max API file upload failed. Raw response: " + resp.text,
+                        extra={"status_code": resp.status_code}
+                    )
+                except Exception:
+                    pass
                 raise RuntimeError("Max API did not return file token")
 
             # Step 3: Send message with image attachment
@@ -256,8 +271,22 @@ class MaxClient:
             await self.send_message(user_id, text, attachments=attachments)
 
         except Exception:
-            logger.exception("Failed to send image to Max, falling back to text-only")
-            # Fallback to plain text so the user at least gets the link
+            logger.exception("Failed to send dynamic image to Max, trying fallback URL or text")
+            # If we have a static fallback URL in settings, try sending that as an image
+            if hasattr(self.settings, 'max_bot_qr_image_url') and self.settings.max_bot_qr_image_url:
+                try:
+                    attachments = [
+                        {
+                            "type": "image",
+                            "payload": {"url": self.settings.max_bot_qr_image_url},
+                        }
+                    ]
+                    await self.send_message(user_id, text, attachments=attachments)
+                    return
+                except Exception:
+                    logger.exception("Failed to send fallback image URL to Max")
+
+            # Final fallback to plain text so the user at least gets the link
             await self.send_message(user_id, text)
 
     async def send_text(self, user_id: str, text: str) -> None:
@@ -319,7 +348,7 @@ def build_max_router(
 ) -> APIRouter:
     settings.require_max()
     router = APIRouter()
-    max_client = max_client or MaxClient(settings.max_bot_token)
+    max_client = max_client or MaxClient(settings)
     crm = CRMSubmissionService(storage, bitrix)
     content = bot_content(settings)
     reply_markup = max_main_menu(content)

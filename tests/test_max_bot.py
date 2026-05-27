@@ -90,8 +90,9 @@ async def test_max_client_send_text_uses_official_contract() -> None:
         requests.append(request)
         return httpx.Response(200, json={"message": {"body": {"text": "ok"}}})
 
+    settings = Settings(MAX_BOT_TOKEN="token-123")
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
-        await MaxClient("token-123", http_client=http_client).send_text("42", "Здравствуйте")
+        await MaxClient(settings, http_client=http_client).send_text("42", "Здравствуйте")
 
     request = requests[0]
     assert request.url == "https://platform-api.max.ru/messages?user_id=42"
