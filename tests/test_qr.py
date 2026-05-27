@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from pathlib import Path
 
 import pytest
 
@@ -42,6 +43,12 @@ def test_read_speakers_rejects_invalid_codes(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="speaker code must contain only"):
         read_speakers(path)
+
+
+def test_production_speaker_template_is_valid() -> None:
+    speakers = read_speakers(Path("data/speakers.production.template.csv"))
+
+    assert [speaker.code for speaker in speakers] == ["speaker_code_1", "speaker_code_2"]
 
 
 def test_generate_qr_artifacts_rejects_placeholder_usernames(tmp_path) -> None:

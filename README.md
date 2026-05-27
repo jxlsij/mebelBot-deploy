@@ -277,7 +277,8 @@ If the command reports missing fields, update `BITRIX24_ENTITY` and the
 
 ## Generate speaker QR codes
 
-Create `data/speakers.csv`:
+Collect the final client values listed in [PRODUCTION_INPUTS.md](PRODUCTION_INPUTS.md),
+then create `data/speakers.csv` from `data/speakers.production.template.csv`:
 
 ```csv
 code,name

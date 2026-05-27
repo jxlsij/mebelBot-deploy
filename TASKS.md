@@ -1,6 +1,7 @@
 ## 🎯 Current
 - [ ] Collect production inputs from the client before generating final QR materials.
   - Needed: real speaker list with unique `code,name` rows, real Telegram bot username, real Max bot username, and production host details for Max HTTPS webhooks.
+  - Ready-to-send checklist and fill-in CSV template are prepared in `PRODUCTION_INPUTS.md` and `data/speakers.production.template.csv`.
 - [ ] Replace `data/speakers.csv` demo rows with the real speaker list, regenerate QR codes with real Telegram/Max bot usernames, and manually verify that every deep link stores the correct source code.
   - Blocked until the real speaker list and bot usernames are provided. The QR generator now rejects placeholder usernames and invalid source codes before writing production artifacts.
 
@@ -50,6 +51,8 @@
   - Added regression coverage proving Max menu, catalog links, contacts, guided order collection, source attribution, and SQLite persistence continue to work without CRM credentials.
 - [x] Verify Bitrix24 webhook credentials and source-field mapping against the configured portal.
   - On 2026-05-27, a forced-healthy-IP API check validated `lead` fields, created test lead `id=16`, read it back, and confirmed `UF_CRM_SPEAKER_SRC=smoke_test_source`.
+- [x] Prepare production input collection materials for final QR generation.
+  - Added `PRODUCTION_INPUTS.md`, `data/speakers.production.template.csv`, template validation coverage, and regenerated demo QR artifacts with non-placeholder demo usernames.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.
