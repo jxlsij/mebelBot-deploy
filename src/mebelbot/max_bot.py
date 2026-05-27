@@ -206,32 +206,54 @@ class MaxClient:
         image_bytes: bytes,
         filename: str = "qr.png",
     ) -> None:
-        # Step 1: Get upload URL
-        upload_resp = await self._post("/uploads", params={"type": "image"})
-        upload_data = upload_resp.json()
-        upload_url = upload_data["url"]
+        token = None
+        try:
+            # Step 1: Get upload URL
+            upload_resp = await self._post("/uploads", params={"type": "image"})
+            upload_data = upload_resp.json()
+            if "url" not in upload_data:
+                logger.error("Max API upload URL request failed", extra={"response": upload_data})
+                raise RuntimeError(f"Max API did not return upload URL: {upload_data}")
+            upload_url = upload_data["url"]
 
-        # Step 2: Upload file
-        if self._client is not None:
-            files = {"data": (filename, image_bytes, "image/png")}
-            upload_post_resp = await self._client.post(upload_url, files=files)
-            upload_post_resp.raise_for_status()
-            token = upload_post_resp.json()["token"]
-        else:
-            async with httpx.AsyncClient(timeout=30) as client:
-                files = {"data": (filename, image_bytes, "image/png")}
-                upload_post_resp = await client.post(upload_url, files=files)
-                upload_post_resp.raise_for_status()
-                token = upload_post_resp.json()["token"]
+            # Step 2: Upload file (Try 'file' then 'data')
+            async def try_upload(field_name: str) -> str | None:
+                files = {field_name: (filename, image_bytes, "image/png")}
+                try:
+                    if self._client is not None:
+                        resp = await self._client.post(upload_url, files=files)
+                    else:
+                        async with httpx.AsyncClient(timeout=30) as client:
+                            resp = await client.post(upload_url, files=files)
+                    
+                    resp.raise_for_status()
+                    result = resp.json()
+                    return result.get("token")
+                except Exception as e:
+                    logger.debug(f"Upload attempt with field '{field_name}' failed: {e}")
+                    return None
 
-        # Step 3: Send message with image attachment
-        attachments = [
-            {
-                "type": "image",
-                "payload": {"token": token},
-            }
-        ]
-        await self.send_message(user_id, text, attachments=attachments)
+            token = await try_upload("file")
+            if not token:
+                token = await try_upload("data")
+
+            if not token:
+                logger.error("Max API file upload failed to return token with both 'file' and 'data'")
+                raise RuntimeError("Max API did not return file token")
+
+            # Step 3: Send message with image attachment
+            attachments = [
+                {
+                    "type": "image",
+                    "payload": {"token": token},
+                }
+            ]
+            await self.send_message(user_id, text, attachments=attachments)
+
+        except Exception:
+            logger.exception("Failed to send image to Max, falling back to text-only")
+            # Fallback to plain text so the user at least gets the link
+            await self.send_message(user_id, text)
 
     async def send_text(self, user_id: str, text: str) -> None:
         await self.send_message(user_id, text)
