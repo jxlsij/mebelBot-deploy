@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 
 import httpx
@@ -31,11 +32,12 @@ def main() -> None:
             "validate-env",
             "bitrix-validate-fields",
             "bitrix-smoke-test",
+            "ops-status",
         ],
         help=(
             "Run Telegram polling, register the Max webhook subscription, "
             "retry failed CRM submissions, validate .env values, validate Bitrix24 field mappings, "
-            "or create a test Bitrix24 CRM item."
+            "create a test Bitrix24 CRM item, or print local operator status."
         ),
     )
     parser.add_argument(
@@ -117,6 +119,9 @@ def main() -> None:
         except (RuntimeError, httpx.HTTPError) as error:
             raise SystemExit(f"error: {_format_exception(error)}") from None
         print(result)
+    elif args.service == "ops-status":
+        storage = SQLiteStorage(settings.database_url)
+        print(json.dumps(_operator_status(settings, storage), ensure_ascii=False, indent=2))
 
 
 def _format_environment_issue(issue: EnvironmentIssue) -> str:
@@ -191,6 +196,18 @@ async def _run_bitrix_field_validation(bitrix: Bitrix24Client, settings: Setting
 
     mapped = ", ".join(f"{purpose}={field}" for purpose, field in required_fields.items())
     return f"Bitrix24 field validation passed: entity={settings.bitrix24_entity} {mapped}"
+
+
+def _operator_status(settings: Settings, storage: SQLiteStorage) -> dict[str, object]:
+    return {
+        "status": "ok",
+        "database_path": str(storage.path),
+        "telegram_polling_available": bool(settings.telegram_bot_token),
+        "telegram_webhook_enabled": bool(settings.telegram_bot_token and settings.telegram_webhook_secret),
+        "max_webhook_enabled": bool(settings.max_bot_token and settings.webhook_secret),
+        "bitrix24_configured": bool(settings.bitrix24_webhook_url),
+        "crm_submissions": storage.submission_status_counts(),
+    }
 
 
 if __name__ == "__main__":

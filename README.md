@@ -173,6 +173,7 @@ Set these Space secrets/variables:
 TELEGRAM_BOT_TOKEN=...
 WEBHOOK_HOST=https://amiasayedau-mebelbot-deploy.hf.space
 DATABASE_URL=sqlite:///data/mebelbot.sqlite3
+OPS_STATUS_SECRET=long-random-operator-secret
 ```
 
 If Telegram API calls from HuggingFace are blocked, create the Cloudflare Worker from
@@ -221,6 +222,47 @@ By default, production API docs are disabled and webhook request bodies are capp
 `WEBHOOK_MAX_BODY_BYTES=262144`. Set `ENABLE_API_DOCS=true` only for a protected/internal
 environment. If app-level host validation needs explicit values, set comma-separated
 `TRUSTED_HOSTS`, for example `TRUSTED_HOSTS=bot.example.org,www.bot.example.org`.
+
+## Production operations
+
+Use `/health` for a lightweight uptime check and `/ready` for readiness checks that
+also touch SQLite:
+
+```bash
+curl https://your-host.example/health
+curl https://your-host.example/ready
+```
+
+For operator visibility, set `OPS_STATUS_SECRET` and query the protected status endpoint:
+
+```bash
+curl -H "X-MebelBot-Admin-Secret: $OPS_STATUS_SECRET" https://your-host.example/ops/status
+```
+
+The response reports enabled Telegram/Max/Bitrix24 integrations and CRM submission
+counts by status (`pending`, `sent`, `failed`) without exposing tokens, webhook URLs, or
+contact data. On the server, the same information is available without HTTP through:
+
+```bash
+mebelbot ops-status
+```
+
+If `failed` grows above zero after Bitrix24 is configured, inspect logs and run:
+
+```bash
+mebelbot retry-failed-crm --limit 10
+```
+
+Production launch sequence:
+
+1. Set real secrets and run `mebelbot validate-env`.
+2. Deploy the ASGI app from the included `Dockerfile`.
+3. Confirm `/health`, `/ready`, and protected `/ops/status`.
+4. Register Max with `mebelbot max-subscribe` once `WEBHOOK_HOST` is the final HTTPS host.
+5. For Telegram webhook mode, set `TELEGRAM_WEBHOOK_SECRET`; the ASGI app registers
+   `/webhooks/telegram` on startup when `TELEGRAM_BOT_TOKEN` and `WEBHOOK_HOST` are set.
+6. Run `mebelbot bitrix-validate-fields`, then `mebelbot bitrix-smoke-test`.
+7. Generate final QR codes and verify each manifest row against Bitrix24 attribution.
 
 Before pushing to Git, run:
 

@@ -37,6 +37,9 @@ class Storage:
     def list_failed_submissions(self, limit: int | None = None) -> list[StoredContactSubmission]:
         raise NotImplementedError
 
+    def submission_status_counts(self) -> dict[SubmissionStatus, int]:
+        raise NotImplementedError
+
     def upsert_submission(self, fingerprint: str, contact: ContactData) -> None:
         raise NotImplementedError
 
@@ -234,6 +237,23 @@ class SQLiteStorage(Storage):
                 )
             )
         return submissions
+
+    def submission_status_counts(self) -> dict[SubmissionStatus, int]:
+        counts: dict[SubmissionStatus, int] = {"pending": 0, "sent": 0, "failed": 0}
+        with self._connect() as db:
+            rows = db.execute(
+                """
+                SELECT status, COUNT(*) AS count
+                FROM contacts
+                GROUP BY status
+                """
+            ).fetchall()
+
+        for row in rows:
+            status = str(row["status"])
+            if status in counts:
+                counts[status] = int(row["count"])
+        return counts
 
     def upsert_submission(self, fingerprint: str, contact: ContactData) -> None:
         with self._connect() as db:

@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from secrets import compare_digest
 from urllib.parse import urlparse
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -112,6 +113,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/ready")
+    async def ready() -> dict[str, str]:
+        storage.submission_status_counts()
+        return {"status": "ok", "database": "ok"}
+
+    @app.get("/ops/status")
+    async def ops_status(
+        x_mebelbot_admin_secret: str | None = Header(default=None),
+    ) -> dict[str, bool | dict[str, int] | str]:
+        if not settings.ops_status_secret:
+            raise HTTPException(status_code=404, detail="Ops status endpoint is not enabled")
+        if not compare_digest(x_mebelbot_admin_secret or "", settings.ops_status_secret):
+            raise HTTPException(status_code=401, detail="Invalid ops status secret")
+
+        counts = storage.submission_status_counts()
+        return {
+            "status": "ok",
+            "database": "ok",
+            "telegram_webhook_enabled": bool(
+                settings.telegram_bot_token and settings.telegram_webhook_secret
+            ),
+            "max_webhook_enabled": bool(settings.max_bot_token and settings.webhook_secret),
+            "bitrix24_configured": bool(settings.bitrix24_webhook_url),
+            "crm_submissions": counts,
+        }
 
     return app
 

@@ -4,16 +4,15 @@
   - Ready-to-send checklist and fill-in CSV template are prepared in `PRODUCTION_INPUTS.md` and `data/speakers.production.template.csv`.
 - [ ] Replace `data/speakers.csv` demo rows with the real speaker list, regenerate QR codes with real Telegram/Max bot usernames, and manually verify that every deep link stores the correct source code.
   - Blocked until the real speaker list and bot usernames are provided. The QR generator now rejects placeholder usernames and invalid source codes before writing production artifacts.
+- [ ] Register production webhooks/subscriptions on the live host: Max via `mebelbot max-subscribe` and Telegram webhook setup if Telegram is moved from polling to webhook mode.
+  - Blocked until final production host, bot tokens, and launch mode are confirmed. Deployment notes now document the launch sequence.
+- [ ] Run the final production smoke test: Telegram deep link to Bitrix24, Max deep link to Bitrix24, duplicate submission protection, and QR-to-source attribution.
+  - Blocked until real production QR inputs, live bot usernames, production host, and client CRM launch credentials are provided.
 
 ## 📋 Backlog
 - [ ] Optionally run the Bitrix24 smoke test against a temporary Bitrix24 trial/demo portal before client CRM access is ready.
   - This can verify webhook creation, lead/deal payloads, and custom source field mapping, but production validation must be repeated on the client's real Bitrix24 portal.
-- [ ] Keep the simple one-message contact input available only if needed as an operator shortcut or fallback; the customer demo should prefer the guided form.
-- [ ] Adapt the free HuggingFace + Cloudflare Worker deployment guide for this aiogram/FastAPI project, including Dockerfile, ASGI command, Telegram API proxy support, and Max webhook limitations.
-- [ ] Add production deployment notes for running Telegram polling and Max webhooks under a process manager, including HTTPS/443 requirements for Max.
-- [ ] Register production webhooks/subscriptions on the live host: Max via `mebelbot max-subscribe` and Telegram webhook setup if Telegram is moved from polling to webhook mode.
-- [ ] Add minimal production monitoring and operator visibility for failed CRM submissions, Telegram/Max API errors, Bitrix24 errors, logs, and `/health`.
-- [ ] Run the final production smoke test: Telegram deep link to Bitrix24, Max deep link to Bitrix24, duplicate submission protection, and QR-to-source attribution.
+- [ ] Add process-manager examples for non-HuggingFace VPS deployment if the client chooses a VPS instead of the Docker Space.
 
 ## ✅ Done
 - [x] Initialize the bot project structure with dependency management, runtime entrypoint, configuration loading, and development scripts
@@ -60,6 +59,13 @@
   - Added a `Мой QR` Telegram menu button that replies with a PNG QR code, deep link, and source code. It reuses an existing deep-link source or creates a personal `tg_<telegram_user_id>` source for attribution.
 - [x] Notify Telegram personal QR owners when another user opens their QR link.
   - For `/start src_tg_<owner_id>`, the bot sends the owner a Telegram notification with the starter display name, Telegram ID, and source code. Self-starts and shared speaker codes do not notify anyone.
+- [x] Keep the simple one-message contact input available only as a fallback while the customer demo prefers the guided form.
+- [x] Adapt the free HuggingFace + Cloudflare Worker deployment guide for this aiogram/FastAPI project.
+  - Documented Docker/ASGI startup, Telegram API proxy support, Telegram webhook registration, Max webhook limitations, and HuggingFace Space variables in `README.md`.
+- [x] Add production deployment and launch notes.
+  - Documented `/health`, `/ready`, protected `/ops/status`, environment validation, webhook registration, Bitrix24 validation, smoke testing, and final QR verification sequence in `README.md`.
+- [x] Add minimal production monitoring and operator visibility.
+  - Added `mebelbot ops-status`, `/ready`, protected `/ops/status`, `OPS_STATUS_SECRET`, and CRM submission counts for `pending`, `sent`, and `failed` records.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.

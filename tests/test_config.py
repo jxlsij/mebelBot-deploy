@@ -124,3 +124,11 @@ def test_validate_environment_rejects_tiny_webhook_body_limit() -> None:
     issues = issue_pairs(settings)
 
     assert ("error", "WEBHOOK_MAX_BODY_BYTES") in issues
+
+
+def test_validate_environment_checks_optional_ops_status_secret() -> None:
+    settings = valid_settings().model_copy(update={"ops_status_secret": "short"})
+
+    issues = issue_pairs(settings)
+
+    assert ("warning", "OPS_STATUS_SECRET") in issues

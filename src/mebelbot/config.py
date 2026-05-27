@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite:///data/mebelbot.sqlite3", alias="DATABASE_URL")
     webhook_host: str = Field(default="", alias="WEBHOOK_HOST")
     webhook_secret: str = Field(default="", alias="WEBHOOK_SECRET")
+    ops_status_secret: str = Field(default="", alias="OPS_STATUS_SECRET")
     enable_api_docs: bool = Field(default=False, alias="ENABLE_API_DOCS")
     webhook_max_body_bytes: int = Field(default=262_144, alias="WEBHOOK_MAX_BODY_BYTES")
     trusted_hosts: str = Field(default="", alias="TRUSTED_HOSTS")
@@ -172,6 +173,8 @@ def validate_environment(settings: Settings) -> list[EnvironmentIssue]:
         placeholder_prefixes=("your_", "your-", "token"),
     ):
         require_secret("WEBHOOK_SECRET", settings.webhook_secret, min_length=16)
+    if settings.ops_status_secret:
+        require_secret("OPS_STATUS_SECRET", settings.ops_status_secret, min_length=16)
 
     if missing_or_placeholder(settings.telegram_bot_username, placeholder_prefixes=("your_",)):
         add("warning", "TELEGRAM_BOT_USERNAME", "set it before generating Telegram QR links")
