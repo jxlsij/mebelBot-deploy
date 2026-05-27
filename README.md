@@ -1,3 +1,12 @@
+---
+title: MebelBot
+sdk: docker
+emoji: 🛋️
+colorFrom: blue
+colorTo: green
+app_port: 7860
+---
+
 # MebelBot
 
 Telegram and Max chatbot with speaker attribution through deep links/QR codes. Bitrix24 CRM
