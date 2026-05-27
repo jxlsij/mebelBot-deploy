@@ -1,0 +1,3 @@
+code,name,telegram_link,max_link,telegram_qr,max_qr
+speaker_1,Speaker One,https://t.me/your_tg_bot?start=src_speaker_1,https://max.ru/your_max_bot?start=src_speaker_1,data/qr-demo/speaker_1-telegram.png,data/qr-demo/speaker_1-max.png
+speaker_2,Speaker Two,https://t.me/your_tg_bot?start=src_speaker_2,https://max.ru/your_max_bot?start=src_speaker_2,data/qr-demo/speaker_2-telegram.png,data/qr-demo/speaker_2-max.png

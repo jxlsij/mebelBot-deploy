@@ -1,0 +1,2 @@
+"""MebelBot package."""
+

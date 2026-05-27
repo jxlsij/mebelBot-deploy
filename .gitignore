@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+.env
+
+*.db
+*.sqlite3
+data/qr/
+deploy guides/.DS_Store

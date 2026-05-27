@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.git
+.pytest_cache
+.ruff_cache
+.venv
+__pycache__
+*.db
+*.sqlite3
+*.py[cod]
+data/qr/
+data/qr-demo/
+deploy guides/.DS_Store
