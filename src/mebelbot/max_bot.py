@@ -20,6 +20,7 @@ from mebelbot.flow import (
     handle_order_text,
     start_order_flow,
 )
+from mebelbot.qr import max_link, qr_png_bytes, validate_bot_username
 from mebelbot.storage import Storage
 
 
@@ -198,6 +199,40 @@ class MaxClient:
             json=payload,
         )
 
+    async def send_image(
+        self,
+        user_id: str,
+        text: str,
+        image_bytes: bytes,
+        filename: str = "qr.png",
+    ) -> None:
+        # Step 1: Get upload URL
+        upload_resp = await self._post("/uploads", params={"type": "image"})
+        upload_data = upload_resp.json()
+        upload_url = upload_data["url"]
+
+        # Step 2: Upload file
+        if self._client is not None:
+            files = {"data": (filename, image_bytes, "image/png")}
+            upload_post_resp = await self._client.post(upload_url, files=files)
+            upload_post_resp.raise_for_status()
+            token = upload_post_resp.json()["token"]
+        else:
+            async with httpx.AsyncClient(timeout=30) as client:
+                files = {"data": (filename, image_bytes, "image/png")}
+                upload_post_resp = await client.post(upload_url, files=files)
+                upload_post_resp.raise_for_status()
+                token = upload_post_resp.json()["token"]
+
+        # Step 3: Send message with image attachment
+        attachments = [
+            {
+                "type": "image",
+                "payload": {"token": token},
+            }
+        ]
+        await self.send_message(user_id, text, attachments=attachments)
+
     async def send_text(self, user_id: str, text: str) -> None:
         await self.send_message(user_id, text)
 
@@ -238,6 +273,15 @@ class MaxClient:
             )
             response.raise_for_status()
             return response
+
+
+def max_qr_source(storage: Storage, user_id: str) -> str:
+    existing_source = storage.get_source(Channel.max, user_id)
+    if existing_source:
+        return existing_source
+    source = f"mx_{user_id}"
+    storage.save_source(Channel.max, user_id, source)
+    return source
 
 
 def build_max_router(
@@ -308,11 +352,26 @@ def build_max_router(
             return {"status": "ok"}
 
         if command_matches(text, content.qr_button):
-            source = storage.get_source(Channel.max, user_id) or f"mx_{user_id}"
-            await max_client.send_message(
+            try:
+                username = (
+                    validate_bot_username(settings.max_bot_username, field_name="MAX_BOT_USERNAME")
+                    if settings.max_bot_username
+                    else None
+                )
+            except ValueError:
+                username = None
+
+            if not username:
+                await max_client.send_message(user_id, content.qr_unavailable_text, attachments=reply_markup)
+                return {"status": "ok"}
+
+            source = max_qr_source(storage, user_id)
+            link = max_link(username, source)
+            await max_client.send_image(
                 user_id,
-                f"{content.qr_caption_text}\n\nИсточник: {source}",
-                attachments=reply_markup,
+                f"{content.qr_caption_text}\n\nСсылка: {link}\nИсточник: {source}",
+                qr_png_bytes(link),
+                filename=f"{source}-max.png",
             )
             return {"status": "ok"}
 
