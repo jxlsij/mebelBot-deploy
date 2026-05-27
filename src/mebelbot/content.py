@@ -118,8 +118,8 @@ class BotContent:
         "Когда клиент откроет ссылку и оставит заявку, этот источник попадет в Bitrix24."
     )
     qr_unavailable_text: str = (
-        "Не удалось сформировать QR-код: у Telegram-бота не найден username. "
-        "Добавьте TELEGRAM_BOT_USERNAME в настройки или проверьте username бота."
+        "Не удалось сформировать QR-код: не найден username бота. "
+        "Проверьте настройки TELEGRAM_BOT_USERNAME или MAX_BOT_USERNAME."
     )
     qr_start_notification_text: str = (
         "🎟 По вашему QR-коду открыли бота.\n\n"
