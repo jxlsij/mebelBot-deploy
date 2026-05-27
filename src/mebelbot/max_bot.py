@@ -121,7 +121,7 @@ def max_main_menu(content) -> list[dict[str, Any]]:
                         {"type": "message", "text": content.order_button},
                         {"type": "message", "text": content.contacts_button},
                     ],
-                    [{"type": "message", "text": content.main_menu_button}],
+                    [{"type": "message", "text": content.qr_button}],
                 ]
             },
         }
