@@ -234,7 +234,19 @@ class MaxClient:
                     
                     resp.raise_for_status()
                     result = resp.json()
-                    return result.get("token")
+                    
+                    # Try root token
+                    if "token" in result:
+                        return str(result["token"])
+                    
+                    # Try nested token in 'photos' (seen in production logs)
+                    photos = result.get("photos")
+                    if isinstance(photos, dict) and photos:
+                        first_photo = next(iter(photos.values()))
+                        if isinstance(first_photo, dict) and "token" in first_photo:
+                            return str(first_photo["token"])
+                            
+                    return None
                 except Exception as e:
                     logger.debug(f"Upload attempt with field '{field_name}' failed: {e}")
                     return None
