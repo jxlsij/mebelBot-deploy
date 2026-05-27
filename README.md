@@ -53,6 +53,24 @@ database URLs, and malformed content links without printing secret values.
 
 After adding real secrets, follow the checklist in [SECRET_TESTS.md](SECRET_TESTS.md).
 
+## Current Blockers
+
+The bot can be demoed without Bitrix24: Telegram/Max menu sections, catalog links,
+contacts, guided order collection, SQLite persistence, and QR/deep-link mechanics are in
+place.
+
+Production QR distribution and CRM validation are waiting for client-side inputs:
+
+- final speaker list for `data/speakers.csv` with unique `code,name` rows;
+- real public Telegram and Max bot usernames for QR generation;
+- Bitrix24 portal access, selected CRM entity type (`lead` or `deal`), and field codes;
+- production HTTPS host details for Max, because Max webhooks require HTTPS on port 443
+  with a trusted certificate.
+
+Once those values are available, regenerate QR codes, manually verify every manifest row,
+run `mebelbot bitrix-validate-fields`, and then run the Bitrix24 smoke test from
+[SECRET_TESTS.md](SECRET_TESTS.md).
+
 ## Current CRM Mode
 
 There is no Bitrix24 portal access yet, so the bot should be developed and demoed without

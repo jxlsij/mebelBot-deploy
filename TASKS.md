@@ -1,11 +1,13 @@
 ## 🎯 Current
-- [ ] Continue bot development/demo without Bitrix24 access. Treat CRM integration as deferred; the bot should remain usable for menu/catalog/contact collection while CRM credentials are unavailable.
+- [ ] Keep the bot demo-ready while Bitrix24 access is unavailable: Telegram/Max menus, catalog links, contacts, guided order collection, and SQLite persistence should continue to work without CRM credentials.
+- [ ] Collect production inputs from the client before generating final QR materials.
+  - Needed: real speaker list with unique `code,name` rows, real Telegram bot username, real Max bot username, and production host details for Max HTTPS webhooks.
 - [ ] Replace `data/speakers.csv` demo rows with the real speaker list, regenerate QR codes with real Telegram/Max bot usernames, and manually verify that every deep link stores the correct source code.
-  - Blocked until the real speaker list and Max bot username are provided. The QR generator now rejects placeholder usernames and invalid source codes before writing production artifacts.
+  - Blocked until the real speaker list and bot usernames are provided. The QR generator now rejects placeholder usernames and invalid source codes before writing production artifacts.
 
 ## 📋 Backlog
 - [ ] Verify Bitrix24 integration against the real portal once credentials are available: confirm whether the project should create leads or deals, confirm field mappings, and prove the speaker/source field receives the expected value.
-  - Deferred: there is currently no Bitrix24 access. Keep the bot working without CRM until `.env` has a valid `BITRIX24_WEBHOOK_URL` and real `BITRIX24_SOURCE_FIELD`. Added `mebelbot bitrix-validate-fields` to verify configured mappings before the smoke test.
+  - Needed: `BITRIX24_WEBHOOK_URL`, `BITRIX24_ENTITY`, `BITRIX24_SOURCE_FIELD`, and any custom name/phone/comment field codes. Run `mebelbot bitrix-validate-fields` before the smoke test.
 - [ ] Keep the simple one-message contact input available only if needed as an operator shortcut or fallback; the customer demo should prefer the guided form.
 - [ ] Adapt the free HuggingFace + Cloudflare Worker deployment guide for this aiogram/FastAPI project, including Dockerfile, ASGI command, Telegram API proxy support, and Max webhook limitations.
 - [ ] Add production deployment notes for running Telegram polling and Max webhooks under a process manager, including HTTPS/443 requirements for Max.
