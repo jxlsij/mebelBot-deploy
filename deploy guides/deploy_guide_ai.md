@@ -1,109 +1,159 @@
-# Инструкция для ИИ: деплой Python Telegram-бота на HuggingFace бесплатно
+# Инструкция для ИИ: GitHub + HuggingFace Docker Space деплой Telegram-бота
 
-Ты — ИИ-ассистент. Твоя задача — помочь задеплоить Python Telegram-бота на HuggingFace Spaces бесплатно.
-Следуй шагам по порядку. На каждом шаге говори пользователю что именно нужно сделать и жди подтверждения перед переходом к следующему шагу.
+Ты — ИИ-ассистент в локальном проекте. Твоя задача — подготовить проект к
+публичному GitHub-репозиторию, создать новый HuggingFace Space, задеплоить бот и
+проверить, что он реально запущен.
+
+Эта инструкция подходит для пакетных Python-проектов на FastAPI/ASGI/aiogram,
+а не только для простого `main.py` на `telebot`.
 
 ## Контекст
 
-HuggingFace Spaces (бесплатный тариф) блокирует прямые исходящие соединения к api.telegram.org.
-Решение: использовать Cloudflare Worker как прокси между ботом и Telegram API.
-Бот слушает входящие webhook-запросы от Telegram на порту 7860.
-Чтобы HuggingFace не засыпал — настраивается внешний пингователь через cron-job.org.
-Все сервисы бесплатны, карта не нужна.
+HuggingFace Spaces на бесплатном тарифе может блокировать прямые исходящие
+запросы к `api.telegram.org`. Поэтому Telegram Bot API лучше вызывать через
+Cloudflare Worker-прокси.
+
+Правильная production-схема:
+
+- GitHub хранит исходный код.
+- HuggingFace Space с Docker runtime запускает приложение на порту `7860`.
+- Приложение принимает Telegram webhook, например `POST /webhooks/telegram`.
+- Приложение на старте регистрирует webhook в Telegram.
+- Cloudflare Worker проксирует запросы приложения к Telegram Bot API.
+- Secrets не попадают в Git.
 
 ## Сервисы
 
-- HuggingFace (huggingface.co) — хостинг бота
-- Cloudflare Workers (cloudflare.com) — прокси к Telegram API, 100 000 запросов в день бесплатно
-- cron-job.org (console.cron-job.org) — пингует сервер каждые 5 минут чтобы не засыпал
-- GitHub (github.com) — хранение кода
+- GitHub — публичный или приватный репозиторий с кодом.
+- HuggingFace Spaces — Docker-хостинг приложения.
+- Cloudflare Workers — прокси к Telegram Bot API.
+- cron-job.org или другой пингер — опционально, если нужно не давать Space
+  засыпать.
 
-## Шаг 1. Изменить код бота
+## Правила безопасности
 
-Попроси пользователя прислать файл main.py и requirements.txt.
+Перед любым публичным push:
 
-### 1.1 Добавить в начало main.py (после всех импортов)
+1. Проверь `.gitignore`: `.env`, базы, кеши, `.DS_Store`, виртуальное окружение
+   не должны попадать в Git.
+2. Просканируй проект на токены:
 
-```python
-import json
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-_telegram_api_url = os.getenv('TELEGRAM_API_URL')
-if _telegram_api_url:
-    telebot.apihelper.API_URL = _telegram_api_url
+```bash
+rg -n "[0-9]{6,}:[A-Za-z0-9_-]{20,}|TOKEN\\s*=\\s*['\"][^'\"]+|WEBHOOK_SECRET|BITRIX24_WEBHOOK_URL|TELEGRAM_BOT_TOKEN|MAX_BOT_TOKEN" -g '!*.png'
 ```
 
-### 1.2 Заменить bot.infinity_polling() на следующий блок
+3. Если нашел hardcoded токен в demo/MVP-файлах, замени его на чтение из
+   переменной окружения.
+4. Не выводи реальные токены в чат. Если надо проверить наличие значения,
+   выводи только `set/not set` или длину.
+
+## Шаг 1. Подготовь приложение к Docker Space
+
+В проекте должен быть ASGI entrypoint, например:
 
 ```python
-WEBHOOK_URL = os.getenv('WEBHOOK_URL')
+# src/mybot/app.py
+from fastapi import FastAPI
 
-class _BotHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        logger.info("Пинг получен")
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
+app = FastAPI()
 
-    def do_POST(self):
-        content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length)
-        try:
-            update = telebot.types.Update.de_json(json.loads(body.decode('utf-8')))
-            bot.process_new_updates([update])
-        except Exception as e:
-            logger.error(f"Webhook update error: {e}")
-        self.send_response(200)
-        self.end_headers()
-
-    def log_message(self, *args):
-        pass
-
-if WEBHOOK_URL:
-    try:
-        bot.remove_webhook()
-        time.sleep(1)
-        bot.set_webhook(url=WEBHOOK_URL)
-        logger.info("Webhook установлен")
-    except Exception as e:
-        logger.error(f"Ошибка установки webhook: {e}")
-    HTTPServer(("0.0.0.0", 7860), _BotHandler).serve_forever()
-else:
-    try:
-        bot.remove_webhook()
-    except:
-        pass
-    bot.infinity_polling(timeout=60, long_polling_timeout=60)
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 ```
 
-### 1.3 Создать Dockerfile в корне проекта
+Для Telegram webhook нужен endpoint вида:
+
+```text
+POST /webhooks/telegram
+```
+
+Если проект использует `aiogram`, бот должен поддерживать Cloudflare Worker как
+Telegram API base. Пример идеи:
+
+```python
+from aiogram import Bot
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
+
+def build_bot(token: str, telegram_api_base: str = "") -> Bot:
+    if telegram_api_base:
+        base = telegram_api_base.replace("/bot{0}/{1}", "").rstrip("/")
+        api = TelegramAPIServer.from_base(base)
+        return Bot(token=token, session=AiohttpSession(api=api))
+    return Bot(token=token)
+```
+
+На старте ASGI-приложения зарегистрируй webhook:
+
+```python
+await bot.set_webhook(
+    f"{WEBHOOK_HOST.rstrip('/')}/webhooks/telegram",
+    secret_token=TELEGRAM_WEBHOOK_SECRET or None,
+    drop_pending_updates=True,
+)
+```
+
+Для FastAPI используй lifespan handler вместо устаревшего `on_event`.
+
+## Шаг 2. Создай Dockerfile
+
+Для пакетного Python-проекта с `pyproject.toml`:
 
 ```dockerfile
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc \
-    && rm -rf /var/lib/apt/lists/*
+COPY pyproject.toml README.md ./
+COPY src ./src
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY *.py ./
+RUN pip install --upgrade pip \
+    && pip install .
 
 EXPOSE 7860
 
-CMD ["python", "main.py"]
+CMD ["uvicorn", "mybot.app:app", "--host", "0.0.0.0", "--port", "7860"]
 ```
 
-После внесения изменений — запушить всё на GitHub.
+Замени `mybot.app:app` на реальный import path проекта.
 
-## Шаг 2. Настроить Cloudflare Worker
+Добавь `.dockerignore`:
 
-Сказать пользователю:
-1. Зайти на cloudflare.com, зарегистрироваться (только email)
-2. Workers & Pages → Create → Start with Hello World
-3. Вставить код и нажать Deploy:
+```gitignore
+.DS_Store
+.env
+.git
+.pytest_cache
+.ruff_cache
+.venv
+__pycache__
+*.db
+*.sqlite3
+*.py[cod]
+```
+
+Для HuggingFace Space добавь YAML metadata в начало `README.md`:
+
+```markdown
+---
+title: Project Name
+sdk: docker
+app_port: 7860
+---
+```
+
+## Шаг 3. Настрой Cloudflare Worker
+
+Если Worker еще не создан:
+
+1. Зайди на Cloudflare.
+2. Workers & Pages → Create → Start with Hello World.
+3. Вставь код:
 
 ```javascript
 export default {
@@ -119,74 +169,366 @@ export default {
 };
 ```
 
-4. Скопировать URL воркера (формат: https://xxx.workers.dev)
+4. Скопируй Worker URL, например:
 
-Спросить пользователя: "Пришли URL воркера"
-
-## Шаг 3. Создать HuggingFace Space
-
-Сказать пользователю:
-1. Зайти на huggingface.co, зарегистрироваться
-2. New Space → Docker → Public
-3. Загрузить файлы: все .py файлы, Dockerfile, requirements.txt
-4. Открыть Space в новой вкладке и скопировать URL
-
-Формат URL: https://{username}-{spacename}.hf.space (строчные буквы, подчёркивания заменяются дефисами)
-
-Спросить пользователя: "Пришли URL твоего Space"
-
-## Шаг 4. Добавить переменные окружения
-
-Сказать пользователю перейти в Settings → Variables and secrets и добавить:
-
-- BOT_TOKEN = токен от @BotFather
-- WEBHOOK_URL = URL Space (https://username-spacename.hf.space)
-- TELEGRAM_API_URL = URL воркера + /bot{0}/{1} (например: https://xxx.workers.dev/bot{0}/{1})
-- плюс все остальные переменные проекта
-
-## Шаг 5. Настроить пингователь
-
-Сказать пользователю:
-1. Зайти на console.cron-job.org, зарегистрироваться
-2. Create cronjob
-3. URL: URL Space
-4. Schedule: каждые 5 минут
-5. Save
-
-## Шаг 6. Проверка
-
-Попросить пользователя прислать логи из HuggingFace Space (раздел Logs).
-
-Успешный деплой выглядит так:
-```
-Webhook режим: https://...
-Webhook установлен
-Пинг получен
+```text
+https://cold-dew-ccfb.realdredi.workers.dev
 ```
 
-## Диагностика ошибок
+В проекте используй переменную:
 
-Read timed out при старте
-- Причина: HuggingFace блокирует api.telegram.org
-- Решение: проверить что TELEGRAM_API_URL задан в формате https://xxx.workers.dev/bot{0}/{1}
+```text
+TELEGRAM_API_BASE=https://your-worker.workers.dev
+```
 
-Бот не отвечает на сообщения
-- Причина: неверный WEBHOOK_URL
-- Решение: открыть Space в новой вкладке, скопировать реальный URL, обновить переменную
+Если старый проект ожидает формат `TELEGRAM_API_URL`, допустимо:
 
-Invalid JWT Signature
-- Причина: файл credentials.json повреждён при загрузке
-- Решение: пересоздать ключ в Google Cloud Console → IAM & Admin → Service Accounts → Keys → Add Key → JSON
+```text
+TELEGRAM_API_URL=https://your-worker.workers.dev/bot{0}/{1}
+```
 
-Space засыпает
-- Причина: нет пингователя
-- Решение: настроить cron-job.org каждые 5 минут
+## Шаг 4. Проверь проект локально
 
-Webhook не устанавливается
-- Причина: TELEGRAM_API_URL указан неверно
-- Решение: проверить формат — фигурные скобки {0} и {1} должны быть буквально в строке
+Запусти тесты и линтер:
 
-## Итог
+```bash
+.venv/bin/pytest -q
+.venv/bin/ruff check .
+```
 
-После всех шагов бот работает 24/7 на полностью бесплатной инфраструктуре.
-Cloudflare Worker можно переиспользовать для всех последующих проектов — менять нужно только переменные в настройках каждого нового Space.
+Если в проекте есть env validator, запусти его:
+
+```bash
+.venv/bin/mebelbot validate-env
+```
+
+Валидатор может оставлять предупреждения по отложенным интеграциям, но не должен
+падать с ошибками для выбранного режима деплоя.
+
+## Шаг 5. Инициализируй Git и сделай первый коммит
+
+Если в проекте еще нет `.git`:
+
+```bash
+git init
+git branch -m main
+```
+
+Добавь правило в README/AGENTS/TASKS, чтобы после каждого изменения пушить в
+оба remotes:
+
+```bash
+git push origin main
+git push huggingface main
+```
+
+Затем:
+
+```bash
+git add .
+git commit -m "Prepare deployment"
+```
+
+## Шаг 6. Создай новый GitHub repository
+
+Если установлен `gh` и он авторизован:
+
+```bash
+gh repo create OWNER/REPO --public --source=. --remote=origin --push
+```
+
+Если `gh` нет, но git credential helper уже хранит GitHub token, можно создать
+репозиторий через GitHub REST API:
+
+```bash
+cred=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill)
+user=$(printf '%s\n' "$cred" | awk -F= '$1=="username"{print $2; exit}')
+pass=$(printf '%s\n' "$cred" | awk -F= '$1=="password"{print $2; exit}')
+
+curl -sS \
+  -u "$user:$pass" \
+  -H 'Accept: application/vnd.github+json' \
+  -H 'X-GitHub-Api-Version: 2022-11-28' \
+  https://api.github.com/user/repos \
+  -d '{"name":"REPO","private":false,"description":"Project deployment repository."}'
+```
+
+Потом:
+
+```bash
+git remote add origin https://github.com/OWNER/REPO.git
+git push -u origin main
+```
+
+Если имя занято, выбери новое понятное имя, например `project-deploy`.
+
+## Шаг 7. Создай HuggingFace Docker Space
+
+Проверь авторизацию:
+
+```bash
+hf auth whoami
+```
+
+Создай Space:
+
+```bash
+hf repo create HF_USER/SPACE_NAME --type space --space-sdk docker --public --exist-ok
+```
+
+Пример:
+
+```bash
+hf repo create amiasayedau/mebelbot-deploy --type space --space-sdk docker --public --exist-ok
+```
+
+Узнай публичный app URL:
+
+```bash
+hf spaces info HF_USER/SPACE_NAME
+```
+
+В ответе поле `host` будет вида:
+
+```text
+https://hf-user-space-name.hf.space
+```
+
+Добавь remote:
+
+```bash
+git remote add huggingface https://huggingface.co/spaces/HF_USER/SPACE_NAME
+```
+
+Если Space создал стартовый README и обычный push отклоняется, сначала получи
+remote branch и затем замени стартовый коммит своим проектом:
+
+```bash
+git fetch huggingface main
+git push --force-with-lease huggingface main
+```
+
+Для следующих изменений используй обычный push:
+
+```bash
+git push huggingface main
+```
+
+## Шаг 8. Добавь HuggingFace secrets и variables
+
+Secrets:
+
+```bash
+hf spaces secrets add HF_USER/SPACE_NAME \
+  -s TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+  -s TELEGRAM_WEBHOOK_SECRET="$TELEGRAM_WEBHOOK_SECRET"
+```
+
+Variables:
+
+```bash
+hf spaces variables add HF_USER/SPACE_NAME \
+  -e WEBHOOK_HOST=https://hf-user-space-name.hf.space \
+  -e TELEGRAM_API_BASE=https://your-worker.workers.dev \
+  -e DATABASE_URL=sqlite:///data/mebelbot.sqlite3
+```
+
+Если проекту нужны дополнительные переменные, добавь их так же:
+
+```bash
+hf spaces secrets add HF_USER/SPACE_NAME -s SOME_SECRET="$SOME_SECRET"
+hf spaces variables add HF_USER/SPACE_NAME -e SOME_PUBLIC_SETTING=value
+```
+
+Не добавляй пустые или placeholder-переменные для отключенных интеграций, если
+код трактует их как включение интеграции.
+
+## Шаг 9. Пуш в оба remotes
+
+После каждого изменения:
+
+```bash
+git status --short
+.venv/bin/pytest -q
+.venv/bin/ruff check .
+git add .
+git commit -m "Describe change"
+git push origin main
+git push huggingface main
+```
+
+Если изменений нет, коммит не нужен.
+
+## Шаг 10. Проверь сборку и запуск Space
+
+Смотри статус:
+
+```bash
+hf spaces info HF_USER/SPACE_NAME
+```
+
+Смотри build logs:
+
+```bash
+hf spaces logs HF_USER/SPACE_NAME --build --tail 120
+```
+
+Смотри runtime logs:
+
+```bash
+hf spaces logs HF_USER/SPACE_NAME --tail 120
+```
+
+Проверь health endpoint:
+
+```bash
+curl -sS -i https://hf-user-space-name.hf.space/health
+```
+
+Успешный ответ:
+
+```text
+HTTP/2 200
+...
+{"status":"ok"}
+```
+
+## Шаг 11. Проверь Telegram webhook
+
+Через прямой Telegram API, если доступен:
+
+```bash
+python3 - <<'PY'
+import json
+import os
+import urllib.request
+
+token = os.environ["TELEGRAM_BOT_TOKEN"]
+url = f"https://api.telegram.org/bot{token}/getWebhookInfo"
+
+with urllib.request.urlopen(url, timeout=20) as response:
+    data = json.load(response)
+
+result = data.get("result", {})
+print(json.dumps({
+    "ok": data.get("ok"),
+    "url": result.get("url"),
+    "pending_update_count": result.get("pending_update_count"),
+    "last_error_message": result.get("last_error_message"),
+}, ensure_ascii=False, indent=2))
+PY
+```
+
+Успешный результат:
+
+```json
+{
+  "ok": true,
+  "url": "https://hf-user-space-name.hf.space/webhooks/telegram",
+  "pending_update_count": 0,
+  "last_error_message": null
+}
+```
+
+Если локальная проверка через Cloudflare Worker дает `403` и `error code: 1010`,
+это может быть Cloudflare-защита именно для локального клиента. Смотри runtime
+logs Space и прямой `getWebhookInfo`: если webhook зарегистрирован и ошибок нет,
+деплой считается рабочим.
+
+## Диагностика
+
+### GitHub repository name already exists
+
+Выбери новое имя, например `project-deploy`, и используй его для remote `origin`.
+
+### HuggingFace push rejected: fetch first
+
+Space уже содержит стартовый коммит. Для первого пуша:
+
+```bash
+git fetch huggingface main
+git push --force-with-lease huggingface main
+```
+
+### HuggingFace warning: empty or missing yaml metadata in repo card
+
+Добавь YAML metadata в начало `README.md`:
+
+```markdown
+---
+title: Project Name
+sdk: docker
+app_port: 7860
+---
+```
+
+### Space stage: NO_APP_FILE
+
+Обычно нет `Dockerfile` в корне или README metadata не указывает `sdk: docker`.
+
+### Space stage: BUILD_ERROR
+
+Смотри:
+
+```bash
+hf spaces logs HF_USER/SPACE_NAME --build --tail 200
+```
+
+Частые причины:
+
+- неверный `CMD` в Dockerfile;
+- неправильный import path `module.app:app`;
+- пакет не устанавливается через `pip install .`;
+- файл, нужный сборке, исключен в `.dockerignore`.
+
+### App starts, но Telegram не отвечает
+
+Проверь:
+
+- `WEBHOOK_HOST` равен публичному `https://...hf.space`;
+- endpoint `/webhooks/telegram` существует;
+- startup регистрирует webhook;
+- `TELEGRAM_BOT_TOKEN` добавлен как secret;
+- `TELEGRAM_API_BASE` указывает на Cloudflare Worker без лишнего пути;
+- `getWebhookInfo` показывает правильный URL и `last_error_message: null`.
+
+### Space засыпает
+
+На бесплатном тарифе Space может засыпать. Если нужен внешний пинг:
+
+1. Зарегистрируйся на `console.cron-job.org`.
+2. Создай cronjob.
+3. URL: `https://hf-user-space-name.hf.space/health`.
+4. Schedule: каждые 5 минут.
+
+## Реальный пример выполненного деплоя
+
+В проекте `MebelBot` деплой был сделан так:
+
+- GitHub repo: `https://github.com/jxlsij/mebelBot-deploy`
+- HuggingFace Space: `https://huggingface.co/spaces/amiasayedau/mebelbot-deploy`
+- Public app URL: `https://amiasayedau-mebelbot-deploy.hf.space`
+- Cloudflare Worker: `https://cold-dew-ccfb.realdredi.workers.dev`
+- Docker runtime: `uvicorn mebelbot.app:app --host 0.0.0.0 --port 7860`
+- Health check: `https://amiasayedau-mebelbot-deploy.hf.space/health`
+
+Проверки после деплоя:
+
+```text
+pytest: 41 passed
+ruff: All checks passed
+HuggingFace stage: RUNNING
+/health: {"status":"ok"}
+Telegram webhook URL: https://amiasayedau-mebelbot-deploy.hf.space/webhooks/telegram
+Telegram last_error_message: null
+```
+
+После этого в проект записали постоянное правило:
+
+```bash
+git push origin main
+git push huggingface main
+```
+
+То есть каждый production-ready коммит должен уходить и в GitHub, и в
+HuggingFace Space.
