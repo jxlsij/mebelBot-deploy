@@ -42,6 +42,10 @@
 - [x] Finalize customer-ready bot content: welcome text, about/company text, catalog/category links, contacts, button labels, successful submission text, invalid input text, and temporary CRM error text.
 - [x] Prepare a demo speaker source list and QR generation manifest so production QR links can be checked before distribution.
 - [x] Remove the hardcoded Telegram token from `mvp/main.py`; demo tokens are read from environment only.
+- [x] Clean up the interrupted Bitrix24 trial smoke-test work before the next deploy.
+  - Kept useful fixes: `httpx` INFO logs no longer expose webhook URLs, CLI errors are concise, and local `.env` Bitrix values stay out of Git.
+  - Removed the experimental long sync fallback; `bitrix-smoke-test` uses one CRM creation attempt.
+  - On 2026-05-27, `.venv/bin/mebelbot bitrix-validate-fields` passed for `lead` with source field `UF_CRM_SPEAKER_SRC`; one bounded `bitrix-smoke-test` failed with `ConnectTimeout`, so the trial portal is not stable enough for repeat testing.
 
 ## ⚠️ Rules
 - Bot must run in parallel for Telegram and Max with synchronized information and links.

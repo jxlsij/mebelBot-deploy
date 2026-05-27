@@ -72,12 +72,20 @@ class Bitrix24Client:
                 delay = 0.5 * (2 ** (attempt - 1))
                 logger.warning(
                     "Temporary Bitrix24 submission failure; retrying",
-                    extra={"attempt": attempt, "delay": delay, "channel": contact.channel.value},
-                    exc_info=error,
+                    extra={
+                        "attempt": attempt,
+                        "delay": delay,
+                        "channel": contact.channel.value,
+                        "error_type": type(error).__name__,
+                    },
                 )
                 await asyncio.sleep(delay)
 
-        raise Bitrix24Error(f"Bitrix24 submission failed after {attempts} attempts: {last_error}")
+        if last_error is None:
+            detail = "unknown error"
+        else:
+            detail = f"{type(last_error).__name__}: {last_error}"
+        raise Bitrix24Error(f"Bitrix24 submission failed after {attempts} attempts: {detail}")
 
     async def get_crm_item(self, item_id: str) -> dict[str, Any]:
         method = "crm.lead.get.json" if self.settings.bitrix24_entity == "lead" else "crm.deal.get.json"
@@ -104,10 +112,12 @@ class Bitrix24Client:
     async def _post_crm_json(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         if self._client is not None:
             response = await self._client.post(url, json=payload)
-        else:
-            async with httpx.AsyncClient(timeout=15) as client:
-                response = await client.post(url, json=payload)
+            return self._parse_crm_response(response)
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(url, json=payload)
+        return self._parse_crm_response(response)
 
+    def _parse_crm_response(self, response: httpx.Response) -> dict[str, Any]:
         if response.status_code in {429, 500, 502, 503, 504}:
             raise Bitrix24TransientError(f"Bitrix24 temporary HTTP {response.status_code}")
         response.raise_for_status()

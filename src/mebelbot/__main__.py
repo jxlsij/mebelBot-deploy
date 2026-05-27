@@ -4,6 +4,8 @@ import argparse
 import asyncio
 import logging
 
+import httpx
+
 from mebelbot.bitrix import Bitrix24Client, DisabledBitrix24Client
 from mebelbot.config import EnvironmentIssue, Settings, get_settings, validate_environment
 from mebelbot.crm import CRMSubmissionService
@@ -18,6 +20,7 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(description="Run MebelBot services")
     parser.add_argument(
         "service",
@@ -102,8 +105,8 @@ def main() -> None:
         try:
             bitrix = Bitrix24Client(settings)
             result = asyncio.run(_run_bitrix_field_validation(bitrix, settings))
-        except RuntimeError as error:
-            raise SystemExit(f"error: {error}") from None
+        except (RuntimeError, httpx.HTTPError) as error:
+            raise SystemExit(f"error: {_format_exception(error)}") from None
         print(result)
     elif args.service == "bitrix-smoke-test":
         try:
@@ -111,14 +114,21 @@ def main() -> None:
             result = asyncio.run(
                 _run_bitrix_smoke_test(bitrix, settings, args.name, args.phone, args.source)
             )
-        except RuntimeError as error:
-            raise SystemExit(f"error: {error}") from None
+        except (RuntimeError, httpx.HTTPError) as error:
+            raise SystemExit(f"error: {_format_exception(error)}") from None
         print(result)
 
 
 def _format_environment_issue(issue: EnvironmentIssue) -> str:
     marker = "ERROR" if issue.severity == "error" else "WARN"
     return f"- {marker} {issue.field}: {issue.message}"
+
+
+def _format_exception(error: Exception) -> str:
+    message = str(error).strip()
+    if message:
+        return message
+    return type(error).__name__
 
 
 def _bitrix_for_optional_crm(settings: Settings) -> Bitrix24Client | DisabledBitrix24Client:
