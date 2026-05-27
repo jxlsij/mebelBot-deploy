@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite:///data/mebelbot.sqlite3", alias="DATABASE_URL")
     webhook_host: str = Field(default="", alias="WEBHOOK_HOST")
     webhook_secret: str = Field(default="", alias="WEBHOOK_SECRET")
+    enable_api_docs: bool = Field(default=False, alias="ENABLE_API_DOCS")
+    webhook_max_body_bytes: int = Field(default=262_144, alias="WEBHOOK_MAX_BODY_BYTES")
+    trusted_hosts: str = Field(default="", alias="TRUSTED_HOSTS")
 
     bitrix24_entity: Literal["lead", "deal"] = Field(default="lead", alias="BITRIX24_ENTITY")
     bitrix24_source_field: str = Field(
@@ -59,6 +62,11 @@ class Settings(BaseSettings):
     def require_telegram(self) -> None:
         if not self.telegram_bot_token:
             raise RuntimeError("TELEGRAM_BOT_TOKEN is required")
+
+    def require_telegram_webhook(self) -> None:
+        self.require_telegram()
+        if not self.telegram_webhook_secret:
+            raise RuntimeError("TELEGRAM_WEBHOOK_SECRET is required for Telegram webhooks")
 
     def require_max(self) -> None:
         if not self.max_bot_token:
@@ -146,6 +154,17 @@ def validate_environment(settings: Settings) -> list[EnvironmentIssue]:
     else:
         add("warning", "BITRIX24_WEBHOOK_URL", "CRM is disabled until a real Bitrix24 webhook is set")
     require_url("WEBHOOK_HOST", settings.webhook_host, https_only=True)
+    telegram_webhook_configured = bool(
+        settings.telegram_bot_token.strip() and settings.webhook_host.strip()
+    )
+    if telegram_webhook_configured:
+        require_secret("TELEGRAM_WEBHOOK_SECRET", settings.telegram_webhook_secret, min_length=16)
+    elif settings.telegram_webhook_secret and len(settings.telegram_webhook_secret.strip()) < 16:
+        add(
+            "warning",
+            "TELEGRAM_WEBHOOK_SECRET",
+            "value looks short; expected at least 16 characters",
+        )
     if max_configured:
         require_secret("WEBHOOK_SECRET", settings.webhook_secret, min_length=16)
     elif settings.webhook_secret and not missing_or_placeholder(
@@ -167,14 +186,11 @@ def validate_environment(settings: Settings) -> list[EnvironmentIssue]:
             )
         elif parsed.scheme != "https":
             add("warning", "TELEGRAM_API_BASE", "use HTTPS in production")
-    if settings.telegram_webhook_secret and len(settings.telegram_webhook_secret.strip()) < 16:
-        add(
-            "warning",
-            "TELEGRAM_WEBHOOK_SECRET",
-            "value looks short; expected at least 16 characters",
-        )
     if missing_or_placeholder(settings.max_bot_username, placeholder_prefixes=("your_",)):
         add("warning", "MAX_BOT_USERNAME", "set it before generating Max QR links")
+
+    if settings.webhook_max_body_bytes < 1024:
+        add("error", "WEBHOOK_MAX_BODY_BYTES", "must be at least 1024 bytes")
 
     if not settings.database_url.startswith("sqlite:///"):
         add("error", "DATABASE_URL", "only sqlite:/// URLs are supported by this runtime")

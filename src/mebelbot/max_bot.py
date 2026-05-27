@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from secrets import compare_digest
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from mebelbot.bitrix import Bitrix24Client
 from mebelbot.config import Settings
@@ -19,6 +21,73 @@ from mebelbot.flow import (
     start_order_flow,
 )
 from mebelbot.storage import Storage
+
+
+class MaxUser(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: str | int | None = None
+    id: str | int | None = None
+
+    def user_id_text(self) -> str | None:
+        value = self.user_id if self.user_id is not None else self.id
+        return str(value) if value is not None else None
+
+
+class MaxMessageBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    text: str | None = None
+
+
+class MaxMessage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    sender: MaxUser | None = None
+    user: MaxUser | None = None
+    body: MaxMessageBody | None = None
+    text: str | None = None
+    user_id: str | int | None = None
+
+    def text_value(self) -> str:
+        if self.text:
+            return self.text
+        if self.body and self.body.text:
+            return self.body.text
+        return ""
+
+    def user_id_text(self) -> str | None:
+        user = self.sender or self.user
+        if user:
+            return user.user_id_text()
+        return str(self.user_id) if self.user_id is not None else None
+
+
+class MaxWebhookUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    update_type: str
+    message: MaxMessage | None = None
+    user: MaxUser | None = None
+    payload: str | None = None
+    text: str | None = None
+    user_id: str | int | None = None
+
+    def text_value(self) -> str:
+        if self.message:
+            return self.message.text_value()
+        return self.text or ""
+
+    def user_id_text(self) -> str | None:
+        if self.message:
+            user_id = self.message.user_id_text()
+            if user_id:
+                return user_id
+        if self.user:
+            user_id = self.user.user_id_text()
+            if user_id:
+                return user_id
+        return str(self.user_id) if self.user_id is not None else None
 
 
 def extract_text(update: dict[str, Any]) -> str:
@@ -142,25 +211,29 @@ def build_max_router(
         request: Request,
         x_max_bot_api_secret: str | None = Header(default=None),
     ) -> dict[str, str]:
-        if settings.webhook_secret and x_max_bot_api_secret != settings.webhook_secret:
+        if not compare_digest(x_max_bot_api_secret or "", settings.webhook_secret):
             raise HTTPException(status_code=401, detail="Invalid Max webhook secret")
 
-        update = await request.json()
-        text = extract_text(update)
-        user_id = extract_user_id(update)
+        try:
+            update = MaxWebhookUpdate.model_validate(await request.json())
+        except ValidationError as error:
+            raise HTTPException(status_code=400, detail="Invalid Max webhook payload") from error
+
+        if update.update_type not in {"bot_started", "message_created"}:
+            raise HTTPException(status_code=400, detail="Unsupported Max update type")
+
+        text = update.text_value()
+        user_id = update.user_id_text()
         if not user_id:
             return {"status": "ignored"}
 
-        if update.get("update_type") == "bot_started":
-            source = parse_start_payload(str(update.get("payload") or ""))
+        if update.update_type == "bot_started":
+            source = parse_start_payload(update.payload or "")
             if source:
                 storage.save_source(Channel.max, user_id, source)
             storage.clear_flow_state(Channel.max, user_id)
             await max_client.send_text(user_id, max_menu_text(content))
             return {"status": "ok"}
-
-        if update.get("update_type") and update.get("update_type") != "message_created":
-            return {"status": "ignored"}
 
         if text.startswith("/start"):
             source = parse_start_payload(text)

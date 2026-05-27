@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from secrets import compare_digest
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -194,6 +195,7 @@ def build_telegram_router(
     storage: Storage,
     bitrix: BitrixClient,
 ) -> tuple[APIRouter, Bot]:
+    settings.require_telegram_webhook()
     bot = build_bot(settings)
     dispatcher = build_dispatcher(settings, storage, bitrix)
     router = APIRouter()
@@ -203,9 +205,9 @@ def build_telegram_router(
         request: Request,
         x_telegram_bot_api_secret_token: str | None = Header(default=None),
     ) -> dict[str, str]:
-        if (
-            settings.telegram_webhook_secret
-            and x_telegram_bot_api_secret_token != settings.telegram_webhook_secret
+        if not compare_digest(
+            x_telegram_bot_api_secret_token or "",
+            settings.telegram_webhook_secret,
         ):
             raise HTTPException(status_code=401, detail="Invalid Telegram webhook secret")
 

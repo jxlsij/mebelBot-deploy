@@ -116,3 +116,39 @@ def test_max_webhook_handles_bot_started_payload() -> None:
     assert response.status_code == 200
     assert storage.get_source(Channel.max, "1234567890") == "speaker_7"
     assert max_client.sent[0][0] == "1234567890"
+
+
+def test_max_webhook_rejects_invalid_secret() -> None:
+    settings = Settings(
+        MAX_BOT_TOKEN="max-token",
+        WEBHOOK_SECRET="secret-123",
+        BITRIX24_WEBHOOK_URL="https://example.bitrix24.ru/rest/1/token/",
+    )
+    app = FastAPI()
+    app.include_router(build_max_router(settings, FakeStorage(), FakeBitrix(), FakeMaxClient()))
+
+    response = TestClient(app).post(
+        "/webhooks/max",
+        headers={"X-Max-Bot-Api-Secret": "wrong"},
+        json={"update_type": "message_created"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_max_webhook_rejects_unsupported_update_type() -> None:
+    settings = Settings(
+        MAX_BOT_TOKEN="max-token",
+        WEBHOOK_SECRET="secret-123",
+        BITRIX24_WEBHOOK_URL="https://example.bitrix24.ru/rest/1/token/",
+    )
+    app = FastAPI()
+    app.include_router(build_max_router(settings, FakeStorage(), FakeBitrix(), FakeMaxClient()))
+
+    response = TestClient(app).post(
+        "/webhooks/max",
+        headers={"X-Max-Bot-Api-Secret": "secret-123"},
+        json={"update_type": "unexpected", "user": {"user_id": 123}},
+    )
+
+    assert response.status_code == 400

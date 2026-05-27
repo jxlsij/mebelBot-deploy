@@ -14,6 +14,7 @@ def valid_settings() -> Settings:
         BITRIX24_WEBHOOK_URL="https://example.bitrix24.ru/rest/1/secret/",
         DATABASE_URL="sqlite:///data/mebelbot.sqlite3",
         WEBHOOK_HOST="https://bot.example.org",
+        TELEGRAM_WEBHOOK_SECRET="telegram-secret-value",
         WEBHOOK_SECRET="secret-value-with-real-length",
         BITRIX24_SOURCE_FIELD="UF_CRM_123456",
         BITRIX24_PHONE_FIELD="PHONE",
@@ -81,6 +82,14 @@ def test_validate_environment_requires_max_secret_when_max_is_configured() -> No
     assert ("error", "WEBHOOK_SECRET") in issues
 
 
+def test_validate_environment_requires_telegram_webhook_secret_for_webhook_mode() -> None:
+    settings = valid_settings().model_copy(update={"telegram_webhook_secret": ""})
+
+    issues = issue_pairs(settings)
+
+    assert ("error", "TELEGRAM_WEBHOOK_SECRET") in issues
+
+
 def test_validate_environment_requires_valid_bitrix_url_when_crm_is_configured() -> None:
     settings = valid_settings().model_copy(update={"bitrix24_webhook_url": "not a url"})
 
@@ -107,3 +116,11 @@ def test_validate_environment_flags_invalid_telegram_api_base() -> None:
     assert len(issues) == 1
     assert issues[0].severity == "error"
     assert issues[0].field == "TELEGRAM_API_BASE"
+
+
+def test_validate_environment_rejects_tiny_webhook_body_limit() -> None:
+    settings = valid_settings().model_copy(update={"webhook_max_body_bytes": 100})
+
+    issues = issue_pairs(settings)
+
+    assert ("error", "WEBHOOK_MAX_BODY_BYTES") in issues

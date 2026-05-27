@@ -175,7 +175,7 @@ TELEGRAM_API_BASE=https://your-worker.workers.dev
 For compatibility with the original guide, `TELEGRAM_API_URL` in the
 `https://your-worker.workers.dev/bot{0}/{1}` format is also accepted.
 
-Recommended Telegram webhook hardening:
+Required Telegram webhook secret:
 
 ```text
 TELEGRAM_WEBHOOK_SECRET=long-random-secret
@@ -186,6 +186,9 @@ When `WEBHOOK_HOST` and `TELEGRAM_BOT_TOKEN` are set, the ASGI app registers:
 ```text
 POST /webhooks/telegram
 ```
+
+Requests to this endpoint must include `X-Telegram-Bot-Api-Secret-Token` equal to
+`TELEGRAM_WEBHOOK_SECRET`.
 
 Max can run from the same ASGI app if these values are also configured:
 
@@ -203,6 +206,11 @@ mebelbot max-subscribe
 Max production webhooks require HTTPS on port 443 with a trusted TLS certificate. If the
 target host cannot satisfy that requirement, use the HuggingFace deployment for Telegram
 only and deploy Max behind a production HTTPS endpoint separately.
+
+By default, production API docs are disabled and webhook request bodies are capped at
+`WEBHOOK_MAX_BODY_BYTES=262144`. Set `ENABLE_API_DOCS=true` only for a protected/internal
+environment. If app-level host validation needs explicit values, set comma-separated
+`TRUSTED_HOSTS`, for example `TRUSTED_HOSTS=bot.example.org,www.bot.example.org`.
 
 Before pushing to Git, run:
 
