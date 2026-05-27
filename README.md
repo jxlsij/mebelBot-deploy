@@ -23,8 +23,8 @@ as a reference for what the customer expects to see in the bot experience:
   confirmation screen before submission;
 - catalog/category links and a clear way back to the main menu.
 
-Do not run or copy `mvp/main.py` as production code. It contains a hardcoded token,
-placeholder URLs/contact details, in-memory state, and only a Telegram adapter. The
+Do not run or copy `mvp/main.py` as production code. It is a Telegram-only demo with
+placeholder URLs/contact details and in-memory state. The
 production project should keep the shared Telegram/Max architecture and Bitrix24
 submission flow, while adapting the visible demo UX to match this reference. See
 [MVP_REVIEW.md](MVP_REVIEW.md) for the detailed gap analysis and demo acceptance

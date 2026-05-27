@@ -21,7 +21,7 @@ bureau bot, not only a technical contact collector. The expected demo experience
 
 The MVP is not production-ready:
 
-- it contains a hardcoded Telegram bot token;
+- it is demo-only and reads its Telegram token from the environment;
 - it is Telegram-only and does not cover Max;
 - it uses in-memory FSM storage;
 - it has placeholder catalog/contact URLs;

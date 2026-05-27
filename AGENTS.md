@@ -90,9 +90,9 @@ Current next task at initialization time:
 - Keep messenger adapters thin; shared behavior belongs in `flow.py`, `crm.py`, `domain.py`, or `storage.py`.
 - Max production webhooks require HTTPS on port 443 and a trusted TLS certificate.
 - CRM submissions use a contact fingerprint to avoid duplicate Bitrix24 records.
-- The MVP is Telegram-only, stores state in memory, uses placeholder catalog/contact
-  data, and contains a hardcoded bot token. Do not copy those parts. Port only the
-  useful product shape into the shared Telegram/Max implementation.
+- The MVP is Telegram-only, stores state in memory, and uses placeholder
+  catalog/contact data. Do not copy those parts. Port only the useful product
+  shape into the shared Telegram/Max implementation.
 - The current production code is technically broader than the MVP, but the customer
   demo should be friendlier: menu sections, furniture-bureau copy, category links,
   and step-by-step contact/order collection.

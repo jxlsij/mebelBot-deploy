@@ -61,8 +61,8 @@ CRM retry complete: attempted=0 succeeded=0 failed=0
 
 ## 5. Customer demo smoke test
 
-After the MVP-style customer flow is implemented, run the bot manually from a real
-Telegram deep link and a real Max deep link.
+For production/demo verification, run the bot manually from a real Telegram deep
+link and a real Max deep link.
 
 Expected result:
 

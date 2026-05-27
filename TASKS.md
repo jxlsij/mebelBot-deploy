@@ -48,7 +48,7 @@
 - Bitrix24 lead/deal creation is deferred until portal access is available; when enabled, pass speaker/source information into a dedicated CRM field.
 - Keep shared business logic independent from messenger-specific adapters.
 - Credentials and Bitrix24 field IDs must be configured through environment variables or config files, not hardcoded.
-- Treat `mvp/` as a product/UX reference only. Do not copy its hardcoded token, placeholder URLs, in-memory-only state, or Telegram-only architecture into production code.
+- Treat `mvp/` as a product/UX reference only. Do not copy its placeholder URLs, in-memory-only state, or Telegram-only architecture into production code.
 - The customer demo should feel like a real furniture bureau bot, not a technical CRM test: menu sections and guided order flow matter as much as the CRM submission.
 
 ## 📎 Source
