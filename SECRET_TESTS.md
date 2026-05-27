@@ -6,6 +6,8 @@ For Bitrix24-only development, you may use a temporary Bitrix24 cloud trial/demo
 instead of the client's production CRM. Create an incoming webhook with CRM permissions,
 copy the webhook URL into `BITRIX24_WEBHOOK_URL`, set `BITRIX24_ENTITY`, and replace
 `BITRIX24_SOURCE_FIELD` with the real `UF_CRM_*` custom field code from that portal.
+Detailed Bitrix24 setup notes, leads-vs-deals guidance, and timeout interpretation are
+kept in [BITRIX24_CHECKLIST.md](BITRIX24_CHECKLIST.md).
 
 ## 1. Validate configuration
 
@@ -44,6 +46,8 @@ field-mapping issue that must be resolved before production use.
 
 Confirm in Bitrix24 that the created lead/deal type matches `BITRIX24_ENTITY` and
 that the source field configured in `BITRIX24_SOURCE_FIELD` contains `smoke_speaker`.
+If the CLI times out, check Bitrix24 before retrying: the create request may already
+have produced a disposable `MebelBot Smoke Test` item.
 
 ## 3. Register Max webhook
 

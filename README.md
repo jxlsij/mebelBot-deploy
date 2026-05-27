@@ -52,6 +52,8 @@ The validator reports missing values, placeholder defaults, invalid URLs, unsupp
 database URLs, and malformed content links without printing secret values.
 
 After adding real secrets, follow the checklist in [SECRET_TESTS.md](SECRET_TESTS.md).
+For Bitrix24-specific setup and smoke-test interpretation, see
+[BITRIX24_CHECKLIST.md](BITRIX24_CHECKLIST.md).
 
 ## Current Blockers
 
@@ -236,7 +238,9 @@ mebelbot retry-failed-crm --limit 10
 
 ## Verify Bitrix24 integration
 
-Deferred until Bitrix24 access is available.
+See [BITRIX24_CHECKLIST.md](BITRIX24_CHECKLIST.md) for the current verified
+Bitrix24 state, screenshots checklist, leads-vs-deals notes, and timeout
+interpretation.
 
 You can use a temporary Bitrix24 cloud account for integration testing before the
 client provides production CRM access. A new Bitrix24 cloud account starts on the Free
