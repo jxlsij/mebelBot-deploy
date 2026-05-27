@@ -13,7 +13,7 @@ from aiogram.types import BufferedInputFile, KeyboardButton, Message, ReplyKeybo
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from mebelbot.config import Settings
-from mebelbot.content import bot_content, invalid_contact_reply, links_text
+from mebelbot.content import bot_content, command_matches, invalid_contact_reply, links_text
 from mebelbot.crm import BitrixClient, CRMSubmissionService
 from mebelbot.domain import Channel, parse_start_payload
 from mebelbot.flow import (
@@ -245,8 +245,37 @@ def build_dispatcher(settings: Settings, storage: Storage, bitrix: BitrixClient)
             await message.answer(invalid_contact_reply(content), reply_markup=reply_markup)
             return
 
+        text = message.text or ""
+        if command_matches(text, content.main_menu_button):
+            await on_main_menu(message)
+            return
+        if command_matches(text, content.about_button):
+            await on_about(message)
+            return
+        if command_matches(text, content.catalog_button) or command_matches(text, content.links_button):
+            await on_links(message)
+            return
+        if command_matches(text, content.contacts_button):
+            await on_contacts(message)
+            return
+        if command_matches(text, content.qr_button):
+            await on_qr(message)
+            return
+        if command_matches(text, content.order_button) or command_matches(text, content.contact_button):
+            await on_contact_button(message)
+            return
+        if command_matches(text, content.cancel_button):
+            await on_cancel(message)
+            return
+        if command_matches(text, content.edit_button):
+            await on_edit(message)
+            return
+        if command_matches(text, content.confirm_button):
+            await on_confirm(message)
+            return
+
         order_result = await handle_order_text(
-            text=message.text or "",
+            text=text,
             channel=Channel.telegram,
             user_id=str(message.from_user.id),
             storage=storage,
@@ -260,7 +289,7 @@ def build_dispatcher(settings: Settings, storage: Storage, bitrix: BitrixClient)
             return
 
         result = await handle_contact_text(
-            text=message.text or "",
+            text=text,
             channel=Channel.telegram,
             user_id=str(message.from_user.id),
             storage=storage,

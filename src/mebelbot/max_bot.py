@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from mebelbot.bitrix import Bitrix24Client
 from mebelbot.config import Settings
-from mebelbot.content import bot_content, links_text, unknown_command_reply
+from mebelbot.content import bot_content, command_matches, links_text, unknown_command_reply
 from mebelbot.crm import CRMSubmissionService
 from mebelbot.domain import Channel, parse_start_payload
 from mebelbot.flow import (
@@ -243,24 +243,24 @@ def build_max_router(
             await max_client.send_text(user_id, max_menu_text(content))
             return {"status": "ok"}
 
-        if text == content.main_menu_button:
+        if command_matches(text, content.main_menu_button):
             storage.clear_flow_state(Channel.max, user_id)
             await max_client.send_text(user_id, max_menu_text(content))
             return {"status": "ok"}
 
-        if text == content.about_button:
+        if command_matches(text, content.about_button):
             await max_client.send_text(user_id, append_action_hint(content.about_text, content))
             return {"status": "ok"}
 
-        if text in {content.catalog_button, content.links_button}:
+        if command_matches(text, content.catalog_button) or command_matches(text, content.links_button):
             await max_client.send_text(user_id, append_action_hint(links_text(settings, content), content))
             return {"status": "ok"}
 
-        if text == content.contacts_button:
+        if command_matches(text, content.contacts_button):
             await max_client.send_text(user_id, append_action_hint(content.contacts_text, content))
             return {"status": "ok"}
 
-        if text in {content.order_button, content.contact_button}:
+        if command_matches(text, content.order_button) or command_matches(text, content.contact_button):
             result = start_order_flow(
                 channel=Channel.max,
                 user_id=user_id,
@@ -270,7 +270,7 @@ def build_max_router(
             await max_client.send_text(user_id, max_reply_for_result(result, content))
             return {"status": "ok"}
 
-        if text == content.cancel_button:
+        if command_matches(text, content.cancel_button):
             result = cancel_order_flow(
                 channel=Channel.max,
                 user_id=user_id,
@@ -280,7 +280,7 @@ def build_max_router(
             await max_client.send_text(user_id, max_reply_for_result(result, content))
             return {"status": "ok"}
 
-        if text == content.edit_button:
+        if command_matches(text, content.edit_button):
             result = edit_order_flow(
                 channel=Channel.max,
                 user_id=user_id,
@@ -290,7 +290,7 @@ def build_max_router(
             await max_client.send_text(user_id, max_reply_for_result(result, content))
             return {"status": "ok"}
 
-        if text == content.confirm_button:
+        if command_matches(text, content.confirm_button):
             result = await confirm_order_flow(
                 channel=Channel.max,
                 user_id=user_id,

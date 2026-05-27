@@ -1,13 +1,14 @@
 from mebelbot.config import Settings
-from mebelbot.content import bot_content, links_text, unknown_command_reply
+from mebelbot.content import bot_content, command_matches, links_text, unknown_command_reply
 
 
 def test_bot_content_uses_defaults_when_not_overridden() -> None:
     content = bot_content(Settings())
 
-    assert content.order_button == "Оформить заказ"
-    assert content.catalog_button == "Каталог"
-    assert content.qr_button == "Мой QR"
+    assert content.order_button == "📝 Оформить заказ"
+    assert content.catalog_button == "🛋 Каталог"
+    assert content.qr_button == "🎟 Мой QR"
+    assert "👇" in content.welcome_text
 
 
 def test_bot_content_applies_known_overrides_and_ignores_unknown_keys() -> None:
@@ -47,3 +48,9 @@ def test_unknown_command_reply_uses_configured_buttons_prompt() -> None:
     assert unknown_command_reply(bot_content(settings)) == (
         "Нажмите кнопку ниже. Напишите имя и телефон."
     )
+
+
+def test_command_matches_pretty_and_plain_button_labels() -> None:
+    assert command_matches("🛋 Каталог", "🛋 Каталог")
+    assert command_matches("Каталог", "🛋 Каталог")
+    assert command_matches("Подтвердить", "✅ Подтвердить")
