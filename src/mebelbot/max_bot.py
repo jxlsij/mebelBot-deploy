@@ -106,35 +106,70 @@ def extract_user_id(update: dict[str, Any]) -> str | None:
     return str(value) if value is not None else None
 
 
-def max_menu_text(content) -> str:
-    return (
-        f"{content.welcome_text}\n\n"
-        "Меню:\n"
-        f"- {content.about_button}\n"
-        f"- {content.catalog_button}\n"
-        f"- {content.order_button}\n"
-        f"- {content.contacts_button}"
-    )
+def max_main_menu(content) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "inline_keyboard",
+            "payload": {
+                "buttons": [
+                    [
+                        {"type": "message", "text": content.about_button},
+                        {"type": "message", "text": content.catalog_button},
+                    ],
+                    [
+                        {"type": "message", "text": content.order_button},
+                        {"type": "message", "text": content.contacts_button},
+                    ],
+                    [{"type": "message", "text": content.main_menu_button}],
+                ]
+            },
+        }
+    ]
 
 
-def append_action_hint(text: str, content, *, confirm: bool = False, cancel: bool = False) -> str:
-    if confirm:
-        return (
-            f"{text}\n\n"
-            f"Ответьте: {content.confirm_button}, {content.edit_button} или {content.cancel_button}."
-        )
-    if cancel:
-        return f"{text}\n\nЧтобы прервать заявку, отправьте: {content.cancel_button}."
-    return f"{text}\n\nЧтобы вернуться в меню, отправьте: {content.main_menu_button}."
+def max_cancel_menu(content) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "inline_keyboard",
+            "payload": {
+                "buttons": [[{"type": "message", "text": content.cancel_button, "intent": "negative"}]]
+            },
+        }
+    ]
+
+
+def max_confirm_menu(content) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "inline_keyboard",
+            "payload": {
+                "buttons": [
+                    [
+                        {"type": "message", "text": content.confirm_button, "intent": "positive"},
+                        {"type": "message", "text": content.edit_button},
+                    ],
+                    [{"type": "message", "text": content.cancel_button, "intent": "negative"}],
+                ]
+            },
+        }
+    ]
+
+
+def max_markup_for_result(result, content) -> list[dict[str, Any]] | None:
+    if result.show_confirm:
+        return max_confirm_menu(content)
+    if result.show_cancel:
+        return max_cancel_menu(content)
+    if result.show_main_menu:
+        return max_main_menu(content)
+    return None
 
 
 def max_reply_for_result(result, content) -> str:
     if result.show_confirm:
-        return append_action_hint(result.reply, content, confirm=True)
+        return result.reply
     if result.show_cancel:
-        return append_action_hint(result.reply, content, cancel=True)
-    if result.show_main_menu:
-        return f"{result.reply}\n\n{max_menu_text(content)}"
+        return result.reply
     return result.reply
 
 
@@ -148,12 +183,23 @@ class MaxClient:
     def headers(self) -> dict[str, str]:
         return {"Authorization": self.token}
 
-    async def send_text(self, user_id: str, text: str) -> None:
+    async def send_message(
+        self,
+        user_id: str,
+        text: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> None:
+        payload: dict[str, Any] = {"text": text}
+        if attachments:
+            payload["attachments"] = attachments
         await self._post(
             "/messages",
             params={"user_id": user_id},
-            json={"text": text},
+            json=payload,
         )
+
+    async def send_text(self, user_id: str, text: str) -> None:
+        await self.send_message(user_id, text)
 
     async def subscribe_webhook(self, webhook_url: str, secret: str) -> dict[str, Any]:
         response = await self._post(
@@ -205,6 +251,7 @@ def build_max_router(
     max_client = max_client or MaxClient(settings.max_bot_token)
     crm = CRMSubmissionService(storage, bitrix)
     content = bot_content(settings)
+    reply_markup = max_main_menu(content)
 
     @router.post("/webhooks/max")
     async def max_webhook(
@@ -232,7 +279,7 @@ def build_max_router(
             if source:
                 storage.save_source(Channel.max, user_id, source)
             storage.clear_flow_state(Channel.max, user_id)
-            await max_client.send_text(user_id, max_menu_text(content))
+            await max_client.send_message(user_id, content.welcome_text, attachments=reply_markup)
             return {"status": "ok"}
 
         if text.startswith("/start"):
@@ -240,24 +287,33 @@ def build_max_router(
             if source:
                 storage.save_source(Channel.max, user_id, source)
             storage.clear_flow_state(Channel.max, user_id)
-            await max_client.send_text(user_id, max_menu_text(content))
+            await max_client.send_message(user_id, content.welcome_text, attachments=reply_markup)
             return {"status": "ok"}
 
         if command_matches(text, content.main_menu_button):
             storage.clear_flow_state(Channel.max, user_id)
-            await max_client.send_text(user_id, max_menu_text(content))
+            await max_client.send_message(user_id, content.welcome_text, attachments=reply_markup)
             return {"status": "ok"}
 
         if command_matches(text, content.about_button):
-            await max_client.send_text(user_id, append_action_hint(content.about_text, content))
+            await max_client.send_message(user_id, content.about_text, attachments=reply_markup)
             return {"status": "ok"}
 
         if command_matches(text, content.catalog_button) or command_matches(text, content.links_button):
-            await max_client.send_text(user_id, append_action_hint(links_text(settings, content), content))
+            await max_client.send_message(user_id, links_text(settings, content), attachments=reply_markup)
             return {"status": "ok"}
 
         if command_matches(text, content.contacts_button):
-            await max_client.send_text(user_id, append_action_hint(content.contacts_text, content))
+            await max_client.send_message(user_id, content.contacts_text, attachments=reply_markup)
+            return {"status": "ok"}
+
+        if command_matches(text, content.qr_button):
+            source = storage.get_source(Channel.max, user_id) or f"mx_{user_id}"
+            await max_client.send_message(
+                user_id,
+                f"{content.qr_caption_text}\n\nИсточник: {source}",
+                attachments=reply_markup,
+            )
             return {"status": "ok"}
 
         if command_matches(text, content.order_button) or command_matches(text, content.contact_button):
@@ -267,7 +323,9 @@ def build_max_router(
                 storage=storage,
                 content=content,
             )
-            await max_client.send_text(user_id, max_reply_for_result(result, content))
+            await max_client.send_message(
+                user_id, result.reply, attachments=max_markup_for_result(result, content)
+            )
             return {"status": "ok"}
 
         if command_matches(text, content.cancel_button):
@@ -277,7 +335,9 @@ def build_max_router(
                 storage=storage,
                 content=content,
             )
-            await max_client.send_text(user_id, max_reply_for_result(result, content))
+            await max_client.send_message(
+                user_id, result.reply, attachments=max_markup_for_result(result, content)
+            )
             return {"status": "ok"}
 
         if command_matches(text, content.edit_button):
@@ -287,7 +347,9 @@ def build_max_router(
                 storage=storage,
                 content=content,
             )
-            await max_client.send_text(user_id, max_reply_for_result(result, content))
+            await max_client.send_message(
+                user_id, result.reply, attachments=max_markup_for_result(result, content)
+            )
             return {"status": "ok"}
 
         if command_matches(text, content.confirm_button):
@@ -298,7 +360,9 @@ def build_max_router(
                 crm=crm,
                 content=content,
             )
-            await max_client.send_text(user_id, max_reply_for_result(result, content))
+            await max_client.send_message(
+                user_id, result.reply, attachments=max_markup_for_result(result, content)
+            )
             return {"status": "ok" if result.crm_submitted else "crm_failed"}
 
         order_result = await handle_order_text(
@@ -309,7 +373,11 @@ def build_max_router(
             content=content,
         )
         if order_result.handled:
-            await max_client.send_text(user_id, max_reply_for_result(order_result, content))
+            await max_client.send_message(
+                user_id,
+                order_result.reply,
+                attachments=max_markup_for_result(order_result, content),
+            )
             return {"status": "ok"}
 
         result = await handle_contact_text(
@@ -321,14 +389,14 @@ def build_max_router(
             content=content,
         )
         if not result.recognized_contact:
-            await max_client.send_text(user_id, unknown_command_reply(content))
+            await max_client.send_message(user_id, unknown_command_reply(content), attachments=reply_markup)
             return {"status": "ok"}
 
         if not result.crm_submitted:
-            await max_client.send_text(user_id, result.reply)
+            await max_client.send_message(user_id, result.reply, attachments=reply_markup)
             return {"status": "crm_failed"}
 
-        await max_client.send_text(user_id, result.reply)
+        await max_client.send_message(user_id, result.reply, attachments=reply_markup)
         return {"status": "ok"}
 
     return router

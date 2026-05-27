@@ -56,10 +56,18 @@ class FakeBitrix:
 
 class FakeMaxClient(MaxClient):
     def __init__(self) -> None:
-        self.sent: list[tuple[str, str]] = []
+        self.sent: list[tuple[str, str, list[dict[str, Any]] | None]] = []
+
+    async def send_message(
+        self,
+        user_id: str,
+        text: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.sent.append((user_id, text, attachments))
 
     async def send_text(self, user_id: str, text: str) -> None:
-        self.sent.append((user_id, text))
+        await self.send_message(user_id, text)
 
 
 def test_extracts_official_message_created_update() -> None:
@@ -211,8 +219,8 @@ def test_max_demo_flow_works_without_bitrix_credentials(tmp_path) -> None:
     assert confirmed.status_code == 200
     assert confirmed.json() == {"status": "crm_failed"}
     assert storage.get_source(Channel.max, "123") == "speaker_7"
-    assert any("https://example.org/kitchen" in text for _, text in max_client.sent)
-    assert any("Контакты" in text for _, text in max_client.sent)
+    assert any("https://example.org/kitchen" in text for _, text, _ in max_client.sent)
+    assert any("Контакты" in text for _, text, _ in max_client.sent)
     assert failed[0].contact.name == "Иван Петров"
     assert failed[0].contact.request_details == "Нужна кухня под заказ, светлый фасад"
     assert failed[0].contact.source_code == "speaker_7"
