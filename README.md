@@ -230,6 +230,22 @@ mebelbot retry-failed-crm --limit 10
 
 Deferred until Bitrix24 access is available.
 
+You can use a temporary Bitrix24 cloud account for integration testing before the
+client provides production CRM access. A new Bitrix24 cloud account starts on the Free
+plan, but REST API/webhook access for custom integrations requires a commercial, trial,
+demo, or integrator mode. If the account is still on Free and webhooks are unavailable,
+activate the 15-day trial from the Bitrix24 subscription page or use a paid/test portal.
+
+For a temporary smoke-test portal:
+
+1. Create or open a Bitrix24 cloud account and confirm the email address.
+2. Enable CRM and decide whether this project should create leads or deals.
+3. Create a CRM custom field for the speaker/source code and copy its `UF_CRM_*` code.
+4. Create an incoming webhook with CRM permissions.
+5. Put the webhook URL and field codes into `.env`.
+6. Run `mebelbot bitrix-validate-fields`.
+7. Run `mebelbot bitrix-smoke-test`, then delete the disposable lead/deal from Bitrix24.
+
 After `.env` contains the real Bitrix24 webhook URL, entity type, and CRM field codes,
 create a disposable test CRM item and read it back to prove that the speaker/source field
 is mapped correctly:

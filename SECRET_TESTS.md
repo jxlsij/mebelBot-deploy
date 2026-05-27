@@ -2,6 +2,11 @@
 
 Run these checks after real values are added to `.env`.
 
+For Bitrix24-only development, you may use a temporary Bitrix24 cloud trial/demo portal
+instead of the client's production CRM. Create an incoming webhook with CRM permissions,
+copy the webhook URL into `BITRIX24_WEBHOOK_URL`, set `BITRIX24_ENTITY`, and replace
+`BITRIX24_SOURCE_FIELD` with the real `UF_CRM_*` custom field code from that portal.
+
 ## 1. Validate configuration
 
 ```bash
@@ -20,6 +25,8 @@ must be fixed before production checks.
 ## 2. Verify Bitrix24 field mapping
 
 This creates a disposable CRM item in the real Bitrix24 portal and reads it back.
+For a temporary trial/demo portal, the same command verifies only the test portal
+mapping; repeat it later against the client's production portal.
 
 ```bash
 .venv/bin/mebelbot bitrix-smoke-test --source smoke_speaker --phone +375291234567 --name "MebelBot Smoke Test"

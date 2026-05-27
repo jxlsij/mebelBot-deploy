@@ -8,6 +8,8 @@
 ## 📋 Backlog
 - [ ] Verify Bitrix24 integration against the real portal once credentials are available: confirm whether the project should create leads or deals, confirm field mappings, and prove the speaker/source field receives the expected value.
   - Needed: `BITRIX24_WEBHOOK_URL`, `BITRIX24_ENTITY`, `BITRIX24_SOURCE_FIELD`, and any custom name/phone/comment field codes. Run `mebelbot bitrix-validate-fields` before the smoke test.
+- [ ] Optionally run the Bitrix24 smoke test against a temporary Bitrix24 trial/demo portal before client CRM access is ready.
+  - This can verify webhook creation, lead/deal payloads, and custom source field mapping, but production validation must be repeated on the client's real Bitrix24 portal.
 - [ ] Keep the simple one-message contact input available only if needed as an operator shortcut or fallback; the customer demo should prefer the guided form.
 - [ ] Adapt the free HuggingFace + Cloudflare Worker deployment guide for this aiogram/FastAPI project, including Dockerfile, ASGI command, Telegram API proxy support, and Max webhook limitations.
 - [ ] Add production deployment notes for running Telegram polling and Max webhooks under a process manager, including HTTPS/443 requirements for Max.
